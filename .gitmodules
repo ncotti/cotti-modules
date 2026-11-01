@@ -1,0 +1,3 @@
+[submodule "cotti-make"]
+	path = cotti-make
+	url = git@github.com:ncotti/cotti-make.git
