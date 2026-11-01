@@ -7,72 +7,80 @@
 /// the write address, before being overwritten. If possible, you should
 /// prefer using the "ram_simple_dual_port" instead.
 ///
-/// Data width is fixed at 32-bits (4-byte words), the 2 LSB bits are discarded.
-/// E.g., accessing a non-aligned address like 0x8000_00XX will result in the
-/// address 0x8000_0000 instead, no matter the value of "XX".
+/// The `DATA_WIDTH` and `DATA_LANE_WIDTH` determine how the memory will be
+/// written. For example, a typical configuration would be:
+///     `DATA_WIDTH = 32`, `DATA_LANE_WIDTH = 8`
+/// Each word has 32 bits, and the data can be written per byte, by using the
+/// `wstrb` signal, one bit per byte.
+/// If both sizes are equal, i.e., `DATA_WIDTH = DATA_LANE_WIDTH`, then the
+/// full word will be written each time, and both `wstrb` and `we` should be
+/// interconnected.
 ///
-/// @param ADDR_WIDTH_BYTES Number of bits addressing the data.
+/// @param DATA_WIDTH Number of bits per data **word**.
+/// @param DATA_LANE_WIDTH Number of bits per data lane. Each word is divided
+/// in "lanes", and each lane may be individually written by setting the
+/// `wstrb` input bits.
+/// `DATA_WIDTH` must be divisible by `DATA_LANE_WIDTH`.
 /// This parameter defines the size of the RAM, as `2^ADDR_WIDTH_BYTES`
 /// **bytes** will be stored.
+/// @param ADDR_WIDTH_WORDS Number of bits addressing the data.
+/// This parameter defines the size of the RAM, as `2^ADDR_WIDTH_WORDS`
+/// **words** will be stored, each word having `DATA_WIDTH` bits.
 /// @param clk Clock signal
-/// @param raddr Address to be read. The 2 LSB bits are discarded,
-/// since addresses are 4-byte aligned.
-/// @param waddr Address to be written. The 2 LSB bits are discarded,
-/// since addresses are 4-byte aligned.
+/// @param raddr Address to be read.
+/// @param waddr Address to be written.
 /// @param we Write enable.
-/// @param wdata Data to be written. `wdata` should be aligned to match a 4-byte
-/// representation.
-/// E.g, if you want to write the byte at address 0x0101 with `wstrb = 4'b0010`,
-/// then the second byte of the `wdata = 0x0000XX00` should hold that value.
-/// @param wstrb Write strobe. A word is divided in 4 bytes, and `wstrb`
-/// determines the byte-positions that should be updated when the RAM is written.
-/// E.g., given the address `0x01XX == 0x0100`, which holds the value `0xDDCCBBAA`,
-/// and let `wdata = 0x12345678` and `wstrb = 4'b1011`, the memory at 0x0100
-/// would be set to `12CC5678`, i.e., bytes 0x103, 0x101 and 0x100 will be written.
+/// @param wdata Data to be written.
+/// @param wstrb Write strobe. A word is divided into
+/// `DATA_WIDTH / DATA_LANE_WIDTH` lanes, and `wstrb`
+/// determines the lane positions that should be updated when the RAM is written.
+/// E.g., for `DATA_WIDTH = 32` and `DATA_LANE_WIDTH = 8`,
+/// given the address `addr = 0x0100`, which holds the value `0xDDCCBBAA`,
+/// and let `wdata = 0x12345678` and `wstrb = 4'b1011`, the word at 0x0100
+/// would be set to `0x12CC5678`, i.e., the fourth, second and first  bit will
+/// be written.
 /// @param rdata Data read from `raddr`.
-/// If an unaligned memory address was specified, e.g., 0x102, the returned
-/// value will be the value from 0x100, and the user should read the third
-/// byte from `rdata`.
 /// @param rwdata Data read from `waddr`. This value is returned even though
-/// no value is returned.
+/// no value were going to be written.
 module ram_dual_port #(
-    int ADDR_WIDTH_BYTES = 5
+    int DATA_WIDTH = 9,
+    int DATA_LANE_WIDTH = 9,
+    int ADDR_WIDTH_WORDS = 3
 ) (
     input logic clk,
-    input logic [ADDR_WIDTH_BYTES-1:0] raddr,
-    input logic [ADDR_WIDTH_BYTES-1:0] waddr,
+    input logic [ADDR_WIDTH_WORDS-1:0] raddr,
+    input logic [ADDR_WIDTH_WORDS-1:0] waddr,
     input logic we,
-    input logic [31:0] wdata,
-    input logic [3:0] wstrb,
-    output logic [31:0] rdata,
-    output logic [31:0] rwdata
+    input logic [DATA_WIDTH-1:0] wdata,
+    input logic [(DATA_WIDTH/DATA_LANE_WIDTH) -1:0] wstrb,
+    output logic [DATA_WIDTH-1:0] rdata,
+    output logic [DATA_WIDTH-1:0] rwdata
 );
 
     timeunit 1ns; timeprecision 1ns;
 
-    localparam int RamSize = 2 ** (ADDR_WIDTH_BYTES-2);
+    initial begin
+        assert ((DATA_WIDTH % DATA_LANE_WIDTH) == 0)
+            else $error("DATA_WIDTH must be divisble by DATA_LANE_WIDTH");
+    end
 
-    logic [31:0] ram_mem[RamSize];
-    logic [ADDR_WIDTH_BYTES-1:2] ram_waddr, ram_raddr;
+    localparam int Lanes = DATA_WIDTH / DATA_LANE_WIDTH;
+    localparam int RamSize = 2 ** ADDR_WIDTH_WORDS;
 
-    assign ram_waddr = waddr[ADDR_WIDTH_BYTES-1:2];
-    assign ram_raddr = raddr[ADDR_WIDTH_BYTES-1:2];
+    logic [DATA_WIDTH-1:0] ram_mem[RamSize];
 
     always_ff @(posedge clk) begin
-        rdata <= ram_mem[ram_raddr];
-        rwdata <= ram_mem[ram_waddr];
+        rdata <= ram_mem[raddr];
+        rwdata <= ram_mem[waddr];
 
         if (we) begin
-            for (int i=0; i < 4; i=i+1) begin
+            for (int i=0; i < Lanes; i=i+1) begin
                 if (wstrb[i]) begin
-                    ram_mem[ram_waddr][i*8 +: 8] <= wdata[i*8 +: 8];
+                    ram_mem[waddr][i*DATA_LANE_WIDTH +: DATA_LANE_WIDTH] <=
+                        wdata[i*DATA_LANE_WIDTH +: DATA_LANE_WIDTH];
                 end
             end
         end
     end
-
-    // Use unused signals to prevent warnings
-    logic _unused_ok;
-    assign _unused_ok = & {raddr[1:0], waddr[1:0]};
 
 endmodule : ram_dual_port
