@@ -262,17 +262,28 @@ async def test_lifo_full(dut):
 async def test_push_pop_on_same_cycle(dut):
     await reset(dut)
 
-    # Push-pop on empty should only push
+    # Push-pop on empty should show the value, and don't store n
     assert dut.empty.value == 1
     dut.push.value = 1
     dut.pop.value = 1
+    dut.din.value = 0x99
+
+    await RisingEdge(dut.clk)
+    await Timer(1, "ns")
+    await Timer(1, "ns")
+
+    assert dut.num.value == 0
+    assert dut.dout.value == 0x99
+
+    dut.push.value = 1
+    dut.pop.value = 0
     dut.din.value = 0xaa
 
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
 
     assert dut.num.value == 1
-    assert dut.dout.value == 0
+    assert dut.dout.value == 0x99
 
     # now, push-pop should keep the same amount of elements, and pop the last one
     dut.push.value = 1
@@ -289,7 +300,6 @@ async def test_push_pop_on_same_cycle(dut):
     dut.push.value = 1
     dut.pop.value = 0
     dut.din.value = 0xbb
-    await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)

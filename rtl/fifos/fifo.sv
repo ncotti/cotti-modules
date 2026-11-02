@@ -16,7 +16,8 @@
 /// @param push Push `din` into the FIFO. If it is full, then no value will be
 /// written unless a `pop` is also issued in the same clock cycle.
 /// @param pop Pop `dout` out of the FIFO. If the FIFO is empty, then this
-/// operation does nothing, and `dout` does not change.
+/// operation does nothing, and `dout` does not change, unless a value is also
+/// pushed in the same clock cycle.
 /// @param dout Data output.
 /// @param empty Indicates that the FIFO is empty.
 /// @param full Indicates that the FIFO is full.
@@ -74,7 +75,7 @@ module fifo #(
             pop_reg <= 1'b0;
             empty_reg <= 1'b0;
         end else begin
-            prev_dout <= dout;
+            prev_dout <= (push & pop & empty) ? din : dout;
             pop_reg <= pop;
             empty_reg <= empty;
             unique case ({push, pop})
@@ -106,12 +107,12 @@ module fifo #(
                 2'b11: begin
                     if (empty) begin
                         read_pointer <= read_pointer;
-                        num <= num + 1;
+                        write_pointer <= write_pointer;
                     end else begin
                         read_pointer <= read_pointer + 1;
-                        num <= num;
+                        write_pointer <= write_pointer + 1;
                     end
-                    write_pointer <= write_pointer + 1;
+                    num <= num;
                 end
             endcase
         end

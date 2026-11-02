@@ -16,7 +16,8 @@
 /// @param push Push `din` into the LIFO. If it is full, then no value will be
 /// written unless a `pop` is also issued in the same clock cycle.
 /// @param pop Pop `dout` out of the LIFO. If the LIFO is empty, then this
-/// operation does nothing, and `dout` does not change.
+/// operation does nothing, and `dout` does not change, unless a push is
+/// also requested in the same cycle.
 /// @param dout Data output.
 /// @param empty Indicates that the LIFO is empty.
 /// @param full Indicates that the LIFO is full.
@@ -74,7 +75,7 @@ module lifo #(
             pop_reg <= 1'b0;
             empty_reg <= 1'b0;
         end else begin
-            prev_dout <= dout;
+            prev_dout <= (push & pop & empty) ? din : dout;
             pop_reg <= pop;
             empty_reg <= empty;
             unique case ({push, pop})
@@ -106,14 +107,9 @@ module lifo #(
                     end
                 end
                 2'b11: begin
-                    if (empty) begin
-                        write_pointer <= write_pointer + 1;
-                        num <= num + 1;
-                    end else begin
-                        num <= num;
-                        write_pointer <= write_pointer;
-                    end
+                    write_pointer <= write_pointer;
                     read_pointer <= write_pointer;
+                    num <= num;
                 end
             endcase
         end
