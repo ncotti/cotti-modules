@@ -4,14 +4,13 @@ from cocotb.clock import Clock
 
 async def reset(dut):
     c = Clock(dut.clk, 10, "ns")
-    c.start()
+    c.start(start_high=False)
 
     dut.rstN.value = 0
     dut.din.value = 0
     dut.push.value = 0
     dut.pop.value = 0
 
-    await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     dut.rstN.value = 1

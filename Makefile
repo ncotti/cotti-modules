@@ -1,8 +1,8 @@
 
-V_TB_TOP := ram_dual_port
+V_TB_TOP := lifo
 
-V_SRC_DIRS := rtl/memories
+V_SRC_DIRS := rtl/memories rtl/fifos
 V_INC_DIRS :=
-V_TEST_DIRS := tb/memories
+V_TEST_DIRS := tb/memories tb/fifos
 
 include cotti-make/cottimake.mk
