@@ -35,27 +35,33 @@ module fifo #(
     output logic [DATA_WIDTH-1:0] dout,
     output logic empty,
     output logic full,
-    output logic [$clog2(SIZE_WORDS):0] num
+    output logic [$clog2(SIZE_WORDS+1)-1:0] num
 );
 
     timeunit 1ns; timeprecision 1ns;
 
-    localparam int NumWidth = $clog2(SIZE_WORDS);
+    localparam int NumWidth = $clog2(SIZE_WORDS+1);
+    localparam int MemWidth = $clog2(SIZE_WORDS);
 
-    logic [NumWidth-1:0] read_pointer, write_pointer;
+    logic [MemWidth-1:0] read_pointer, write_pointer;
+    logic do_push, do_pop;
     logic we;
-    logic [DATA_WIDTH-1:0] ram_dout, prev_dout;
+    logic [DATA_WIDTH-1:0] ram_dout, dout_reg;
     logic pop_reg, empty_reg;
 
-    assign full = num[NumWidth];
-    assign empty = (num == '0);
-    assign we = (rstN & ((push & ~pop & ~full) | (push & pop)));
-    assign dout = (pop_reg & ~empty_reg) ? ram_dout : prev_dout;
+    assign do_push = (push & ~full) | (push & pop);
+    assign do_pop = (pop & ~empty) | (push & pop);
+    assign we = (rstN & do_push);
+
+    assign full = (num == NumWidth'(SIZE_WORDS));
+    assign empty = (num == 'd0);
+
+    assign dout = (pop_reg & ~empty_reg) ? ram_dout : dout_reg;
 
     ram_simple_dual_port #(
         .DATA_WIDTH(DATA_WIDTH),
         .DATA_LANE_WIDTH(DATA_WIDTH),
-        .ADDR_WIDTH_WORDS(NumWidth)
+        .ADDR_WIDTH_WORDS(MemWidth)
     ) ram_i (
         .clk(clk),
         .raddr(read_pointer),
@@ -71,50 +77,22 @@ module fifo #(
             num <= '0;
             read_pointer <= '0;
             write_pointer <= '0;
-            prev_dout <= '0;
+            dout_reg <= '0;
             pop_reg <= 1'b0;
             empty_reg <= 1'b0;
         end else begin
-            prev_dout <= (push & pop & empty) ? din : dout;
+            dout_reg <= (push & pop & empty) ? din : dout;
             pop_reg <= pop;
             empty_reg <= empty;
-            unique case ({push, pop})
-                2'b00: begin
-                    num <= num;
-                    read_pointer <= read_pointer;
-                    write_pointer <= write_pointer;
-                end
-                2'b01: begin
-                    if (empty) begin
-                        num <= num;
-                        read_pointer <= read_pointer;
-                    end else begin
-                        num <= num - 1;
-                        read_pointer <= read_pointer + 1;
-                    end
-                    write_pointer <= write_pointer;
-                end
-                2'b10: begin
-                    if (full) begin
-                        num <= num;
-                        write_pointer <= write_pointer;
-                    end else begin
-                        num <= num + 1;
-                        write_pointer <= write_pointer + 1;
-                    end
-                    read_pointer <= read_pointer;
-                end
-                2'b11: begin
-                    if (empty) begin
-                        read_pointer <= read_pointer;
-                        write_pointer <= write_pointer;
-                    end else begin
-                        read_pointer <= read_pointer + 1;
-                        write_pointer <= write_pointer + 1;
-                    end
-                    num <= num;
-                end
+
+            case ({do_push, do_pop})
+                2'b01: num <= num - 1;
+                2'b10: num <= num + 1;
+                default: num <= num;
             endcase
+
+            write_pointer <= (do_push) ? write_pointer + 1 : write_pointer;
+            read_pointer <= (do_pop) ? read_pointer + 1 : read_pointer;
         end
     end
 
