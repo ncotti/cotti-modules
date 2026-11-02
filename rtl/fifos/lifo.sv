@@ -25,7 +25,7 @@
 /// from 0 to `SIZE_WORDS`
 module lifo #(
     int DATA_WIDTH = 32,
-    int SIZE_WORDS = 4
+    int SIZE_WORDS = 5
 )(
     input logic clk,
     input logic rstN,
