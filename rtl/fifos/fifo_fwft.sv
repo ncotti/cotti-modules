@@ -40,43 +40,32 @@ module fifo_fwft #(
     output logic [$clog2(SIZE_WORDS+1)-1:0] num
 );
 
-    timeunit 1ns;
-    timeprecision 1ns;
+    timeunit 1ns; timeprecision 1ns;
 
-    localparam int PtrWidth = (SIZE_WORDS > 1) ? $clog2(SIZE_WORDS) : 1;
+    localparam int NumWidth = $clog2(SIZE_WORDS+1);
+    localparam int MemWidth = $clog2(SIZE_WORDS);
 
-    logic [PtrWidth-1:0] read_pointer, write_pointer;
-
-    logic [DATA_WIDTH-1:0] ram_dout;
-    logic [DATA_WIDTH-1:0] head_reg;
-
+    logic [MemWidth-1:0] read_pointer, write_pointer;
     logic do_push, do_pop;
-    logic replace_head;
     logic we;
-    logic ram_read_valid;
+    logic [DATA_WIDTH-1:0] ram_dout, dout_reg;
+    logic pop_reg;
+    logic bypass, bypass_reg;
 
-    assign empty = (num == '0);
-    assign full  = (num == ($clog2(SIZE_WORDS+1))'(SIZE_WORDS));
+    assign do_push = (push & ~full) | (push & pop);
+    assign do_pop = (pop & ~empty) | (push & pop);
+    assign bypass = push & pop & (num == NumWidth'(1));
+    assign we = (rstN & do_push);
 
-    // Accepted FIFO operations.
-    assign do_pop  = pop & ~empty;
-    assign do_push = push & (~full | do_pop);
+    assign full = (num == NumWidth'(SIZE_WORDS));
+    assign empty = (num == 'd0);
 
-    // Replacing the only element in the FIFO.
-    assign replace_head = do_push & do_pop & (num == 1);
-
-    // The head is stored in head_reg.
-    // Only subsequent elements are stored in RAM.
-    assign we = do_push & ~empty & ~replace_head;
-
-    // Select the RAM output after a successful pop when
-    // there was another element waiting in the FIFO.
-    assign dout = ram_read_valid ? ram_dout : head_reg;
+    assign dout = (pop_reg & ~empty & ~bypass_reg) ? ram_dout : dout_reg;
 
     ram_simple_dual_port #(
         .DATA_WIDTH(DATA_WIDTH),
         .DATA_LANE_WIDTH(DATA_WIDTH),
-        .ADDR_WIDTH_WORDS(PtrWidth)
+        .ADDR_WIDTH_WORDS(MemWidth)
     ) ram_i (
         .clk(clk),
         .raddr(read_pointer),
@@ -90,51 +79,24 @@ module fifo_fwft #(
     always_ff @(posedge clk) begin
         if (!rstN) begin
             num <= '0;
-
-            read_pointer <= '0;
+            read_pointer <= 'd1;
             write_pointer <= '0;
-
-            head_reg <= '0;
-            ram_read_valid <= 1'b0;
+            dout_reg <= '0;
+            pop_reg <= 1'b0;
+            bypass_reg <= 1'b0;
         end else begin
+            dout_reg <= ((push & empty) | bypass ) ? din : dout;
+            pop_reg <= pop;
+            bypass_reg <= bypass;
 
-            // Keep the current output value.
-            // When a RAM read becomes valid, this captures
-            // its result on the following clock edge.
-            if (do_push && empty)
-                head_reg <= din;
-            else if (replace_head)
-                head_reg <= din;
-            else
-                head_reg <= dout;
+            case ({do_push, do_pop})
+                2'b01: num <= num - 1;
+                2'b10: num <= num + 1;
+                default: num <= num;
+            endcase
 
-            // The RAM output is selected immediately after
-            // a pop if another element was available.
-            ram_read_valid <= do_pop && (num > 1);
-
-            // Update the number of stored elements.
-            if (do_push && !do_pop)
-                num <= num + 1'b1;
-            else if (do_pop && !do_push)
-                num <= num - 1'b1;
-
-            // Advance the RAM read pointer when promoting
-            // another element to the FIFO head.
-            if (do_pop && (num > 1)) begin
-                if (read_pointer == PtrWidth'(SIZE_WORDS - 1))
-                    read_pointer <= '0;
-                else
-                    read_pointer <= read_pointer + 1'b1;
-            end
-
-            // Advance the RAM write pointer when appending
-            // an element behind the current head.
-            if (we) begin
-                if (write_pointer == PtrWidth'(SIZE_WORDS - 1))
-                    write_pointer <= '0;
-                else
-                    write_pointer <= write_pointer + 1'b1;
-            end
+            write_pointer <= (do_push) ? write_pointer + 1 : write_pointer;
+            read_pointer <= (do_pop) ? read_pointer + 1 : read_pointer;
         end
     end
 
