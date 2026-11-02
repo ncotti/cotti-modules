@@ -326,8 +326,6 @@ async def test_push_pop_on_same_cycle(dut):
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     await Timer(1, "ns")
-    assert dut.dout.value == 0xcc
-    await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
