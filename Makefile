@@ -1,5 +1,5 @@
 
-V_TB_TOP := lifo
+V_TB_TOP := fifo_fwft
 
 V_SRC_DIRS := rtl/memories rtl/fifos
 V_INC_DIRS :=
