@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026  Nicolas Gabriel Cotti
+
 /// @brief First Word Fall Through (FWFT) FIFO (First In First Out).
 ///
 /// The value written is shown at the output in the next clock cycle, and the
