@@ -56,10 +56,10 @@ module ram_simple_dual_port #(
 
     initial begin
         assert ((DATA_WIDTH % DATA_LANE_WIDTH) == 0)
-            else $error("DATA_WIDTH must be divisble by DATA_LANE_WIDTH");
+        else $error("DATA_WIDTH must be divisble by DATA_LANE_WIDTH");
     end
 
-    localparam int Lanes = DATA_WIDTH / DATA_LANE_WIDTH;
+    localparam int Lanes   = DATA_WIDTH / DATA_LANE_WIDTH;
     localparam int RamSize = 2 ** ADDR_WIDTH_WORDS;
 
     logic [DATA_WIDTH-1:0] ram_mem[RamSize];
@@ -68,7 +68,7 @@ module ram_simple_dual_port #(
         rdata <= ram_mem[raddr];
 
         if (we) begin
-            for (int i=0; i < Lanes; i=i+1) begin
+            for (int i = 0; i < Lanes; i = i + 1) begin
                 if (wstrb[i]) begin
                     ram_mem[waddr][i*DATA_LANE_WIDTH +: DATA_LANE_WIDTH] <=
                         wdata[i*DATA_LANE_WIDTH +: DATA_LANE_WIDTH];

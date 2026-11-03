@@ -29,7 +29,7 @@
 module lifo #(
     int DATA_WIDTH = 32,
     int SIZE_WORDS = 5
-)(
+) (
     input logic clk,
     input logic rstN,
     input logic [DATA_WIDTH-1:0] din,
@@ -42,7 +42,7 @@ module lifo #(
 );
     timeunit 1ns; timeprecision 1ns;
 
-    localparam int NumWidth = $clog2(SIZE_WORDS+1);
+    localparam int NumWidth = $clog2(SIZE_WORDS + 1);
     localparam int MemWidth = $clog2(SIZE_WORDS);
 
     logic [MemWidth-1:0] read_pointer, write_pointer;
@@ -83,11 +83,13 @@ module lifo #(
             pop_reg <= 1'b0;
             empty_reg <= 1'b0;
         end else begin
-            dout_reg <= (push & pop & empty) ? din : dout;
-            pop_reg <= pop;
+            dout_reg  <= (push & pop & empty) ? din : dout;
+            pop_reg   <= pop;
             empty_reg <= empty;
 
-            case ({do_push, do_pop})
+            case ({
+                do_push, do_pop
+            })
                 2'b01: begin
                     num <= num - 1;
                     read_pointer <= read_pointer - 1;
@@ -112,4 +114,4 @@ module lifo #(
         end
     end
 
-endmodule: lifo
+endmodule : lifo

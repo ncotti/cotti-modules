@@ -5,6 +5,7 @@ import cocotb
 from cocotb.triggers import Timer, RisingEdge
 from cocotb.clock import Clock
 
+
 @cocotb.test
 async def test_ram_write_and_read_back_aligned(dut):
     c = Clock(dut.clk, 10, "ns")
@@ -18,7 +19,7 @@ async def test_ram_write_and_read_back_aligned(dut):
     # Initialize the RAM
     for i in range(8):
         dut.waddr.value = i
-        dut.wdata.value = 0x1111 * (i+1)
+        dut.wdata.value = 0x1111 * (i + 1)
         await RisingEdge(dut.clk)
         await Timer(1, "ns")
 
@@ -28,10 +29,10 @@ async def test_ram_write_and_read_back_aligned(dut):
     for i in range(8):
         dut.waddr.value = i
         dut.raddr.value = i
-        dut.wdata.value = 0x11 * (i+1)
+        dut.wdata.value = 0x11 * (i + 1)
         await RisingEdge(dut.clk)
         await Timer(1, "ns")
-        assert dut.rdata.value == 0x1111 * (i+1)
+        assert dut.rdata.value == 0x1111 * (i + 1)
 
     # Check that the writes from the previous step went through
     dut.we.value = 0
@@ -126,6 +127,7 @@ async def test_write_strobe(dut):
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     assert dut.rdata.value == 0xBBAA
+
 
 @cocotb.test
 async def test_ram_size(dut):

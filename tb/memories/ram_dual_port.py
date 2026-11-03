@@ -5,6 +5,7 @@ import cocotb
 from cocotb.triggers import Timer, RisingEdge
 from cocotb.clock import Clock
 
+
 @cocotb.test
 async def test_ram_write_and_read_back_aligned(dut):
     c = Clock(dut.clk, 10, "ns")
@@ -59,6 +60,7 @@ async def test_ram_write_and_read_back_aligned(dut):
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     assert dut.rdata.value == 0
+
 
 @cocotb.test
 async def test_we_test(dut):

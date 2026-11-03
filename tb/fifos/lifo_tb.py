@@ -7,6 +7,7 @@ from cocotb.clock import Clock
 
 LIFO_SIZE_WORDS = 5
 
+
 async def reset(dut):
     c = Clock(dut.clk, 10, "ns")
     c.start(start_high=False)
@@ -24,6 +25,7 @@ async def reset(dut):
     assert dut.empty.value == 1
     assert dut.full.value == 0
     assert dut.num.value == 0
+
 
 @cocotb.test
 async def test_lifo_empty(dut):
@@ -71,6 +73,7 @@ async def test_lifo_empty(dut):
     assert dut.empty.value == 1
     assert dut.dout.value == 0xAA
     assert dut.num.value == 0
+
 
 @cocotb.test
 async def test_lifo_simple_push_pop(dut):
@@ -196,9 +199,10 @@ async def test_full_push_full_pop(dut):
         await Timer(1, "ns")
 
         assert dut.dout.value == LIFO_SIZE_WORDS - i
-        assert dut.num.value == LIFO_SIZE_WORDS - (i+1)
+        assert dut.num.value == LIFO_SIZE_WORDS - (i + 1)
 
     assert dut.empty.value == 1
+
 
 @cocotb.test
 async def test_lifo_full(dut):
@@ -254,11 +258,11 @@ async def test_lifo_full(dut):
         await RisingEdge(dut.clk)
         await Timer(1, "ns")
 
-        if (i == 0):
+        if i == 0:
             assert dut.dout.value == LIFO_SIZE_WORDS + 1
         else:
             assert dut.dout.value == LIFO_SIZE_WORDS - i
-        assert dut.num.value == LIFO_SIZE_WORDS - (i+1)
+        assert dut.num.value == LIFO_SIZE_WORDS - (i + 1)
 
     assert dut.empty.value == 1
 
@@ -282,7 +286,7 @@ async def test_push_pop_on_same_cycle(dut):
 
     dut.push.value = 1
     dut.pop.value = 0
-    dut.din.value = 0xaa
+    dut.din.value = 0xAA
 
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
@@ -293,35 +297,35 @@ async def test_push_pop_on_same_cycle(dut):
     # now, push-pop should keep the same amount of elements, and pop the last one
     dut.push.value = 1
     dut.pop.value = 1
-    dut.din.value = 0xbb
+    dut.din.value = 0xBB
 
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
 
     assert dut.num.value == 1
-    assert dut.dout.value == 0xaa
+    assert dut.dout.value == 0xAA
 
     # Fill the lifo
     dut.push.value = 1
     dut.pop.value = 0
-    dut.din.value = 0xbb
+    dut.din.value = 0xBB
     for i in range(LIFO_SIZE_WORDS + 1):
         await RisingEdge(dut.clk)
     await Timer(1, "ns")
 
     assert dut.full.value == 1
-    assert dut.dout.value == 0xaa
+    assert dut.dout.value == 0xAA
 
     # Push-pop on full
     dut.push.value = 1
     dut.pop.value = 1
-    dut.din.value = 0xcc
+    dut.din.value = 0xCC
 
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
 
     assert dut.full.value == 1
-    assert dut.dout.value == 0xbb
+    assert dut.dout.value == 0xBB
 
     ## Empty the lifo, and check that the last value is the right one
 
@@ -333,4 +337,4 @@ async def test_push_pop_on_same_cycle(dut):
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
 
-    assert dut.dout.value == 0xbb
+    assert dut.dout.value == 0xBB
