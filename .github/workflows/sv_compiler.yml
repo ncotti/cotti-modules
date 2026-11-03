@@ -10,6 +10,8 @@ on: push
 jobs:
   sv_compiler:
     runs-on: ubuntu-latest
+    container:
+      image: ncotti/cotti-make:latest
     env:
       REPO_PATH: .
     steps:
