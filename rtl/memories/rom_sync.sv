@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026  Nicolas Gabriel Cotti
+
 /// @brief This is a synchronous ROM memory, whose values are preloaded with
 /// the contents of the file `ROM_FILE`. It is synthesizable.
 ///

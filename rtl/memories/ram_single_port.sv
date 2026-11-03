@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026  Nicolas Gabriel Cotti
+
 /// @brief Single Port Synchronous RAM (SP_RAM).
 ///
 /// The RAM only has one port, which can either be read or written in the

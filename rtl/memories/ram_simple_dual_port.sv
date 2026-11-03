@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026  Nicolas Gabriel Cotti
+
 /// @brief Simple Dual Port Synchronous RAM (SDP_RAM).
 ///
 /// The RAM has two ports, one for reading and other for writing, allowing

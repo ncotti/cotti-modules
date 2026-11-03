@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026  Nicolas Gabriel Cotti
+
 /// @brief Classic LIFO (Last In Last Out).
 ///
 /// The value read at the output is present after a "pop" operation. E.g.:
