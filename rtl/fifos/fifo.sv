@@ -29,7 +29,7 @@
 module fifo #(
     int DATA_WIDTH = 32,
     int SIZE_WORDS = 4
-)(
+) (
     input logic clk,
     input logic rstN,
     input logic [DATA_WIDTH-1:0] din,
@@ -43,7 +43,7 @@ module fifo #(
 
     timeunit 1ns; timeprecision 1ns;
 
-    localparam int NumWidth = $clog2(SIZE_WORDS+1);
+    localparam int NumWidth = $clog2(SIZE_WORDS + 1);
     localparam int MemWidth = $clog2(SIZE_WORDS);
 
     logic [MemWidth-1:0] read_pointer, write_pointer;
@@ -84,19 +84,21 @@ module fifo #(
             pop_reg <= 1'b0;
             empty_reg <= 1'b0;
         end else begin
-            dout_reg <= (push & pop & empty) ? din : dout;
-            pop_reg <= pop;
+            dout_reg  <= (push & pop & empty) ? din : dout;
+            pop_reg   <= pop;
             empty_reg <= empty;
 
-            case ({do_push, do_pop})
-                2'b01: num <= num - 1;
-                2'b10: num <= num + 1;
+            case ({
+                do_push, do_pop
+            })
+                2'b01:   num <= num - 1;
+                2'b10:   num <= num + 1;
                 default: num <= num;
             endcase
 
             write_pointer <= (do_push) ? write_pointer + 1 : write_pointer;
-            read_pointer <= (do_pop) ? read_pointer + 1 : read_pointer;
+            read_pointer  <= (do_pop) ? read_pointer + 1 : read_pointer;
         end
     end
 
-endmodule: fifo
+endmodule : fifo

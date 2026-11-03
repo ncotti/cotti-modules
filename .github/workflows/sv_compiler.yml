@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026  Nicolas Gabriel Cotti
+
+name: "SystemVerilog compiler"
+description: <
+  Checks that all SystemVerilog files pass the linter, compiler, formatter
+  and the provided testbenches.
+on: push
+
+jobs:
+  sv_compiler:
+    runs-on: ubuntu-latest
+    container:
+      image: ncotti/cotti-make:latest
+    env:
+      REPO_PATH: .
+    steps:
+      - name: "Checkout project repo"
+        uses: actions/checkout@v5
+        with:
+          path: ${{ env.REPO_PATH }}
+          submodules: "true"
+
+      - name: "Compile and test"
+        shell: bash
+        run: |
+          make -C ${{ env.REPO_PATH }} vfmt FMT_CHECK=1
+          make -C ${{ env.REPO_PATH }} vcompile
+          make -C ${{ env.REPO_PATH }} vrun V_TB_TOP=""
