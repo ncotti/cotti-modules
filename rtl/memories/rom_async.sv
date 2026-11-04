@@ -9,17 +9,17 @@
 ///
 /// @param DATA_WIDTH Number of bits for each stored word.
 /// @param ADDR_WIDTH_WORDS Number of bits addressing the data.
-/// This parameter defines the size of the ROM, as `2^ADDR_WIDTH` **words**
-/// will be stored.
-/// @param addr Address of the data to be retrieved.
-/// @param dread Data read from `addr`.
+/// This parameter defines the size of the ROM, as `2^ADDR_WIDTH_WORDS`
+/// **words** will be stored.
+/// @param raddr Address of the data to be retrieved.
+/// @param rdata Data read from `raddr`.
 module rom_async #(
     int DATA_WIDTH = 8,
     int ADDR_WIDTH_WORDS = 4,
     string ROM_FILE = "tb/memories/rom_async.hex"
 ) (
-    input logic [ADDR_WIDTH_WORDS-1:0] addr,
-    output logic [DATA_WIDTH-1:0] dread
+    input logic [ADDR_WIDTH_WORDS-1:0] raddr,
+    output logic [DATA_WIDTH-1:0] rdata
 );
 
     timeunit 1ns; timeprecision 1ns;
@@ -32,6 +32,6 @@ module rom_async #(
         $readmemh(ROM_FILE, rom_mem);
     end
 
-    assign dread = rom_mem[addr];
+    assign rdata = rom_mem[raddr];
 
 endmodule : rom_async
