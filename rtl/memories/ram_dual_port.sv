@@ -14,15 +14,12 @@
 /// written. For example, a typical configuration would be:
 ///     `DATA_WIDTH = 32`, `DATA_LANE_WIDTH = 8`
 /// Each word has 32 bits, and the data can be written per byte, by using the
-/// `wstrb` signal, one bit per byte.
-/// If both sizes are equal, i.e., `DATA_WIDTH = DATA_LANE_WIDTH`, then the
-/// full word will be written each time, and both `wstrb` and `we` should be
-/// interconnected.
+/// `we` signal, one bit per byte.
 ///
 /// @param DATA_WIDTH Number of bits per data **word**.
 /// @param DATA_LANE_WIDTH Number of bits per data lane. Each word is divided
 /// in "lanes", and each lane may be individually written by setting the
-/// `wstrb` input bits.
+/// `we` input bits.
 /// `DATA_WIDTH` must be divisible by `DATA_LANE_WIDTH`.
 /// This parameter defines the size of the RAM, as `2^ADDR_WIDTH_BYTES`
 /// **bytes** will be stored.
@@ -32,16 +29,15 @@
 /// @param clk Clock signal
 /// @param raddr Address to be read.
 /// @param waddr Address to be written.
-/// @param we Write enable.
-/// @param wdata Data to be written.
-/// @param wstrb Write strobe. A word is divided into
-/// `DATA_WIDTH / DATA_LANE_WIDTH` lanes, and `wstrb`
+/// @param we Write enable. A word is divided into
+/// `DATA_WIDTH / DATA_LANE_WIDTH` lanes, and `we`
 /// determines the lane positions that should be updated when the RAM is written.
 /// E.g., for `DATA_WIDTH = 32` and `DATA_LANE_WIDTH = 8`,
 /// given the address `addr = 0x0100`, which holds the value `0xDDCCBBAA`,
-/// and let `wdata = 0x12345678` and `wstrb = 4'b1011`, the word at 0x0100
+/// and let `wdata = 0x12345678` and `we = 4'b1011`, the word at 0x0100
 /// would be set to `0x12CC5678`, i.e., the fourth, second and first  bit will
 /// be written.
+/// @param wdata Data to be written.
 /// @param rdata Data read from `raddr`.
 /// @param rwdata Data read from `waddr`. This value is returned even though
 /// no value were going to be written.
@@ -53,9 +49,8 @@ module ram_dual_port #(
     input logic clk,
     input logic [ADDR_WIDTH_WORDS-1:0] raddr,
     input logic [ADDR_WIDTH_WORDS-1:0] waddr,
-    input logic we,
+    input logic [(DATA_WIDTH/DATA_LANE_WIDTH) -1:0] we,
     input logic [DATA_WIDTH-1:0] wdata,
-    input logic [(DATA_WIDTH/DATA_LANE_WIDTH) -1:0] wstrb,
     output logic [DATA_WIDTH-1:0] rdata,
     output logic [DATA_WIDTH-1:0] rwdata
 );
@@ -76,12 +71,10 @@ module ram_dual_port #(
         rdata  <= ram_mem[raddr];
         rwdata <= ram_mem[waddr];
 
-        if (we) begin
-            for (int i = 0; i < Lanes; i = i + 1) begin
-                if (wstrb[i]) begin
-                    ram_mem[waddr][i*DATA_LANE_WIDTH +: DATA_LANE_WIDTH] <=
-                        wdata[i*DATA_LANE_WIDTH +: DATA_LANE_WIDTH];
-                end
+        for (int i = 0; i < Lanes; i = i + 1) begin
+            if (we[i]) begin
+                ram_mem[waddr][i*DATA_LANE_WIDTH +: DATA_LANE_WIDTH] <=
+                    wdata[i*DATA_LANE_WIDTH +: DATA_LANE_WIDTH];
             end
         end
     end

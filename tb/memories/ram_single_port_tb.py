@@ -12,8 +12,7 @@ async def test_ram_write_and_read_back_aligned(dut):
     c.start()
 
     dut.addr.value = 0
-    dut.we.value = 1
-    dut.wstrb.value = 0xF
+    dut.we.value = 0xF
 
     # Initialize the RAM
     for i in range(8):
@@ -24,7 +23,7 @@ async def test_ram_write_and_read_back_aligned(dut):
 
     # Read back all values, while writing new ones
     # The read value should be the previous one
-    dut.we.value = 1
+    dut.we.value = 0xF
     for i in range(8):
         dut.addr.value = i
         dut.wdata.value = 0x00FF00FF
@@ -39,10 +38,9 @@ async def test_we_test(dut):
     c.start()
 
     dut.addr.value = 3
-    dut.wstrb.value = 0xF
 
     # Write first value
-    dut.we.value = 1
+    dut.we.value = 0xF
     dut.wdata.value = 0x12345678
     await RisingEdge(dut.clk)
 
@@ -57,7 +55,7 @@ async def test_we_test(dut):
     # Now, let write a new value
     # Value 0x12345678 should be returned, since is the one
     # stored in the memory
-    dut.we.value = 1
+    dut.we.value = 0xF
     dut.wdata.value = 0x87654321
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
@@ -76,47 +74,41 @@ async def test_write_strobe(dut):
 
     # Write initial value
     dut.addr.value = 7
-    dut.we.value = 1
-    dut.wstrb.value = 0xF
+    dut.we.value = 0xF
     dut.wdata.value = 0x12345678
     await RisingEdge(dut.clk)
 
     # Write first byte only
-    dut.we.value = 1
     dut.wdata.value = 0xAAAAAAAA
-    dut.wstrb.value = 0b0001
+    dut.we.value = 0b0001
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     assert dut.rdata.value == 0x12345678
 
     # Write second byte only
-    dut.we.value = 1
     dut.wdata.value = 0xBBBBBBBB
-    dut.wstrb.value = 0b0010
+    dut.we.value = 0b0010
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     assert dut.rdata.value == 0x123456AA
 
     # Write third byte only
-    dut.we.value = 1
     dut.wdata.value = 0xCCCCCCCC
-    dut.wstrb.value = 0b0100
+    dut.we.value = 0b0100
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     assert dut.rdata.value == 0x1234BBAA
 
     # Write fourth byte only
-    dut.we.value = 1
     dut.wdata.value = 0xDDDDDDDD
-    dut.wstrb.value = 0b1000
+    dut.we.value = 0b1000
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     assert dut.rdata.value == 0x12CCBBAA
 
     # Write some bytes
-    dut.we.value = 1
     dut.wdata.value = 0xEEEEEEEE
-    dut.wstrb.value = 0b1011
+    dut.we.value = 0b1011
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
     assert dut.rdata.value == 0xDDCCBBAA
@@ -133,8 +125,7 @@ async def test_ram_size(dut):
 
     # Accessing last address should be OK
     dut.addr.value = 7
-    dut.we.value = 1
-    dut.wstrb.value = 0xF
+    dut.we.value = 0xF
     dut.wdata.value = 0
 
     await RisingEdge(dut.clk)
@@ -147,7 +138,7 @@ async def test_ram_size(dut):
         pass
 
     try:
-        dut.wstrb.value = 0x10
+        dut.we.value = 0x10
         assert 0
     except ValueError:
         pass

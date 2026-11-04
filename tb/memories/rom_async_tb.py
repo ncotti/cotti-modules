@@ -2,16 +2,16 @@
 # Copyright (C) 2026  Nicolas Gabriel Cotti
 
 import cocotb
-from cocotb.triggers import Timer, RisingEdge
+from cocotb.triggers import Timer
 
 
 @cocotb.test
 async def test_rom_sync(dut):
-    dut.addr.value = 0
+    dut.raddr.value = 0
     await Timer(1, "ns")
-    assert dut.dread.value == 0x12
+    assert dut.rdata.value == 0x12
 
     for i in range(1, 16):
-        dut.addr.value = i
+        dut.raddr.value = i
         await Timer(1, "ns")
-        assert dut.dread.value == 0x11 * i
+        assert dut.rdata.value == 0x11 * i

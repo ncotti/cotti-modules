@@ -71,7 +71,6 @@ module fifo #(
         .waddr(write_pointer),
         .we(we),
         .wdata(din),
-        .wstrb(1'b1),
         .rdata(ram_dout)
     );
 

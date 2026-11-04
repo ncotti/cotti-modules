@@ -6,19 +6,19 @@
 ///
 /// @param DATA_WIDTH Number of bits for each stored word.
 /// @param ADDR_WIDTH_WORDS Number of bits addressing the data.
-/// This parameter defines the size of the ROM, as `2^ADDR_WIDTH` **words**
-/// will be stored.
+/// This parameter defines the size of the ROM, as `2^ADDR_WIDTH_WORDS`
+/// **words** will be stored.
 /// @param clk Clock signal.
-/// @param addr Address of the data to be retrieved in the next clock cycle.
-/// @param dread Data read from prev `addr`.
+/// @param raddr Address of the data to be retrieved in the next clock cycle.
+/// @param rdata Data read from prev `raddr`.
 module rom_sync #(
     int DATA_WIDTH = 32,
     int ADDR_WIDTH_WORDS = 4,
     string ROM_FILE = "tb/memories/rom_sync.hex"
 ) (
     input logic clk,
-    input logic [ADDR_WIDTH_WORDS-1:0] addr,
-    output logic [DATA_WIDTH-1:0] dread
+    input logic [ADDR_WIDTH_WORDS-1:0] raddr,
+    output logic [DATA_WIDTH-1:0] rdata
 );
 
     timeunit 1ns; timeprecision 1ns;
@@ -32,7 +32,7 @@ module rom_sync #(
     end
 
     always_ff @(posedge clk) begin
-        dread <= rom_mem[addr];
+        rdata <= rom_mem[raddr];
     end
 
 endmodule : rom_sync

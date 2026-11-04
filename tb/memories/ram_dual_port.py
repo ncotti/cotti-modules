@@ -13,8 +13,7 @@ async def test_ram_write_and_read_back_aligned(dut):
 
     dut.raddr.value = 0
     dut.waddr.value = 0
-    dut.we.value = 1
-    dut.wstrb.value = 0b1
+    dut.we.value = 0b1
 
     # Initialize the RAM
     for i in range(8):
@@ -51,7 +50,6 @@ async def test_ram_write_and_read_back_aligned(dut):
     dut.we.value = 1
     dut.waddr.value = 4
     dut.raddr.value = 4
-    dut.wstrb.value = 0b1
     dut.wdata.value = 0
     await RisingEdge(dut.clk)
     await Timer(1, "ns")
@@ -69,7 +67,6 @@ async def test_we_test(dut):
 
     dut.raddr.value = 3
     dut.waddr.value = 3
-    dut.wstrb.value = 0b1
 
     # Write first value
     dut.we.value = 1
@@ -108,7 +105,6 @@ async def test_ram_size(dut):
     dut.raddr.value = 7
     dut.waddr.value = 7
     dut.we.value = 1
-    dut.wstrb.value = 0b1
     dut.wdata.value = 0
 
     await RisingEdge(dut.clk)
@@ -133,7 +129,7 @@ async def test_ram_size(dut):
         pass
 
     try:
-        dut.wstrb.value = 0b10
+        dut.we.value = 0b10
         assert 0
     except ValueError:
         pass
