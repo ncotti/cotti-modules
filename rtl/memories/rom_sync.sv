@@ -14,7 +14,7 @@
 module rom_sync #(
     int DATA_WIDTH = 32,
     int ADDR_WIDTH_WORDS = 4,
-    string ROM_FILE = "tb/memories/rom_sync.hex"
+    string ROM_FILE = "tb/memories/hex/rom_sync.hex"
 ) (
     input logic clk,
     input logic [ADDR_WIDTH_WORDS-1:0] raddr,
