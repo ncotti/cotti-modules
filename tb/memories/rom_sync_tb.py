@@ -18,8 +18,9 @@ from cotti_uvm import (
 )
 from cotti_uvm.bfm import Bfm
 
-##? DATA_WIDTH=32 ADDR_WIDTH_WORDS=4 ROM_FILE="tb/memories/hex/rom_sync_w32_l4.hex"
-##? DATA_WIDTH=16 ADDR_WIDTH_WORDS=5 ROM_FILE="tb/memories/hex/rom_sync_w16_l5.hex"
+##? DATA_WIDTH=32 ADDR_WIDTH_WORDS=4 ROM_FILE="tb/memories/hex/rom_w32_l4.hex"
+##? DATA_WIDTH=16 ADDR_WIDTH_WORDS=5 ROM_FILE="tb/memories/hex/rom_w16_l5.hex"
+##? DATA_WIDTH=8 ADDR_WIDTH_WORDS=3 ROM_FILE="tb/memories/hex/rom_w8_l3.hex"
 
 class RomItem(Item):
     def __init__(self, raddr:int=0):
@@ -105,7 +106,7 @@ class RomCoverage(Coverage):
             result = CoverageEnum.MIDDLE_ADDR
         return result
 
-class RandomSeq(Sequence):
+class SweepSeq(Sequence):
     def items(self) -> list[RomItem]:
         out = []
         rom_size = config_db_get("ROM_SIZE")
@@ -115,9 +116,9 @@ class RandomSeq(Sequence):
         return out
 
 @pyuvm.test()
-class RandomTest(Tester):
+class SweepTest(Tester):
     bfm = RomBfm
     golden_ref = golden_ref
-    sequence = RandomSeq
+    sequence = SweepSeq
     coverage = RomCoverage
     end_delay_ns=10
