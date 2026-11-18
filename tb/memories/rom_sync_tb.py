@@ -1,30 +1,27 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026  Nicolas Gabriel Cotti
 
-import cocotb
-from cocotb.triggers import Timer, RisingEdge, FallingEdge
-from cocotb.clock import Clock
-from cocotb.queue import QueueEmpty
-
-from cotti_uvm.bfm import Bfm
-from pyuvm import uvm_sequence_item
-from cotti_uvm.coverage import Coverage
-
-import pyuvm
-
-from cotti_uvm.common.help import config_db_set, config_db_get
-from cotti_uvm.tester import Tester
-from cotti_uvm.sequencer import Sequence
-
 from enum import Enum
 
-## DATA_WIDTH=32 ADDR_WIDTH_WORDS=4 ROM_FILE="tb/memories/hex/rom_sync.hex"
+import pyuvm
+from cocotb.clock import Clock
+from cocotb.queue import QueueEmpty
+from cocotb.triggers import FallingEdge
+from cotti_uvm import (
+    Coverage,
+    Item,
+    Sequence,
+    Tester,
+    config_db_get,
+    config_db_set,
+    read_hex,
+)
+from cotti_uvm.bfm import Bfm
 
-def read_hex_file(filename) -> list:
-    with open(filename, "r") as file:
-        return [int(line.strip(), 16) for line in file if line.strip()]
+##? DATA_WIDTH=32 ADDR_WIDTH_WORDS=4 ROM_FILE="tb/memories/hex/rom_sync_w32_l4.hex"
+##? DATA_WIDTH=16 ADDR_WIDTH_WORDS=5 ROM_FILE="tb/memories/hex/rom_sync_w16_l5.hex"
 
-class Item(uvm_sequence_item):
+class RomItem(Item):
     def __init__(self, raddr:int=0):
         super().__init__("rom_item")
         self.raddr = raddr
@@ -38,7 +35,7 @@ class Item(uvm_sequence_item):
 
 ROM = []
 
-def golden_ref(item: Item):
+def golden_ref(item: RomItem):
     """ROM's golden reference function"""
     return ROM[item.raddr]
 
@@ -61,7 +58,7 @@ class RomBfm(Bfm):
             await FallingEdge(self.dut.clk)
             raddr = int(self.dut.raddr.value)
             if (last_raddr != raddr):
-                self.input_monitor_queue.put_nowait(Item(raddr))
+                self.input_monitor_queue.put_nowait(RomItem(raddr))
 
             last_raddr = raddr
 
@@ -86,33 +83,34 @@ class RomBfm(Bfm):
         config_db_set("ROM_SIZE", self.rom_size)
 
         global ROM
-        ROM = read_hex_file(self.dut.ROM_FILE.value.decode("utf-8"))
+        ROM = read_hex(self.dut.ROM_FILE.value.decode("utf-8"))
 
-class CoverageSet(Enum):
+class CoverageEnum(Enum):
     FIRST_ADDR = 0,
     LAST_ADDR = 1,
     MIDDLE_ADDR = 2,
 
 class RomCoverage(Coverage):
-    coverage_set = set(CoverageSet)
+    coverage_enum = CoverageEnum
+    min_coverage_percentage = 100
 
-    def write(self, item):
+    def item_to_coverage(self, item:RomItem) -> CoverageEnum:
         result = None
         rom_size = config_db_get("ROM_SIZE")
         if (item.raddr == 0):
-            result = CoverageSet.FIRST_ADDR
+            result = CoverageEnum.FIRST_ADDR
         elif (item.raddr == rom_size - 1):
-            result = CoverageSet.LAST_ADDR
+            result = CoverageEnum.LAST_ADDR
         else:
-            result = CoverageSet.MIDDLE_ADDR
-        self.coverage_checklist.add(result)
+            result = CoverageEnum.MIDDLE_ADDR
+        return result
 
 class RandomSeq(Sequence):
-    def items(self) -> list[Item]:
+    def items(self) -> list[RomItem]:
         out = []
         rom_size = config_db_get("ROM_SIZE")
         for i in range(rom_size):
-            item = Item(i)
+            item = RomItem(i)
             out.append(item)
         return out
 
