@@ -19,6 +19,11 @@ from cotti_uvm import (
     config_db_set,
 )
 
+##? DATA_WIDTH=32 DATA_LANE_WIDTH=8 ADDR_WIDTH_WORDS=3
+##? DATA_WIDTH=16 DATA_LANE_WIDTH=8 ADDR_WIDTH_WORDS=4
+##? DATA_WIDTH=8 DATA_LANE_WIDTH=8 ADDR_WIDTH_WORDS=2
+##? DATA_WIDTH=15 DATA_LANE_WIDTH=5 ADDR_WIDTH_WORDS=4
+
 RAM = []
 
 class RamItem(Item):
@@ -110,15 +115,10 @@ class RamBfm(Bfm):
                 continue
 
     async def input_monitor(self):
-        """An input transaction is considered as such whenever:
-
-        1. `addr` is different.
-        2. `we` is different.
-        3. `wdata` is different, and `we != 0`.
-        """
-        prev_addr = 0
-        prev_we = 0
-        prev_wdata = 0
+        """An input transaction is considered as such whenever any of the arguments are different."""
+        prev_addr = -1
+        prev_we = -1
+        prev_wdata = -1
         while True:
             await FallingEdge(self.dut.clk)
             addr = int(self.dut.addr.value)
@@ -126,7 +126,7 @@ class RamBfm(Bfm):
             wdata = int(self.dut.wdata.value)
             if ((prev_addr != addr) or
                 (prev_we != we) or
-                (we != 0 and prev_wdata != wdata)):
+                (prev_wdata != wdata)):
                 item = RamItem(
                     addr=addr,
                     we=we,
@@ -139,22 +139,24 @@ class RamBfm(Bfm):
             prev_wdata = wdata
 
     async def output_monitor(self):
-        """The only output transaction would be:
-
-        1. A new value at the output (same or different address).
-        2. A new address (with same or different output value).
-        """
+        """An output transaction is considered whenever any of the inputs are different."""
         prev_addr = -1
-        prev_rdata = -1
+        prev_we = -1
+        prev_wdata = -1
         while True:
             await FallingEdge(self.dut.clk)
             addr = int(self.dut.addr.value)
+            we = int(self.dut.we.value)
+            wdata = int(self.dut.wdata.value)
             rdata = int(self.dut.rdata.value)
-            if ((addr != prev_addr) or (rdata != prev_rdata)):
+            if ((prev_addr != addr) or
+                (prev_we != we) or
+                (prev_wdata != wdata)):
                 self.output_monitor_queue.put_nowait(rdata)
 
             prev_addr = addr
-            prev_rdata = rdata
+            prev_we = we
+            prev_wdata = wdata
 
 
 class RamEnum(Enum):
@@ -195,6 +197,8 @@ class RamCoverage(Coverage):
 
         elif (item.we == self.max_we):
             out.append(RamEnum.WE_FULL)
+            if (self.max_we == 1):
+                out.append(RamEnum.WE_SOME)
 
         else:
             out.append(RamEnum.WE_SOME)
