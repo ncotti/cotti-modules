@@ -85,7 +85,7 @@ module lifo #(
         end else begin
             dout_reg  <= (push & pop) ? din : dout;
             pop_reg   <= pop;
-            push_reg <= push;
+            push_reg  <= push;
             empty_reg <= empty;
 
             case ({
