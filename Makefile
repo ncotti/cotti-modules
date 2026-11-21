@@ -1,5 +1,5 @@
 
-V_TB_TOP ?= 
+V_TB_TOP ?= rom_sync
 
 V_SRC_DIRS ?= rtl/memories rtl/fifos
 V_INC_DIRS ?=

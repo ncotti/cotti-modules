@@ -44,7 +44,7 @@ module fifo #(
     timeunit 1ns; timeprecision 1ns;
 
     localparam int NumWidth = $clog2(SIZE_WORDS + 1);
-    localparam int MemWidth = $clog2(SIZE_WORDS);
+    localparam int MemWidth = (SIZE_WORDS > 1) ? $clog2(SIZE_WORDS) : 1;
 
     logic [MemWidth-1:0] read_pointer, write_pointer;
     logic do_push, do_pop;
@@ -81,7 +81,7 @@ module fifo #(
             write_pointer <= '0;
             dout_reg <= '0;
             pop_reg <= 1'b0;
-            empty_reg <= 1'b0;
+            empty_reg <= 1'b1;
         end else begin
             dout_reg  <= (push & pop & empty) ? din : dout;
             pop_reg   <= pop;

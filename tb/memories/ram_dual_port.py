@@ -1,137 +1,277 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026  Nicolas Gabriel Cotti
 
+import random
+from enum import Enum
+
 import cocotb
-from cocotb.triggers import Timer, RisingEdge
+import pyuvm
 from cocotb.clock import Clock
+from cocotb.queue import QueueEmpty
+from cocotb.triggers import FallingEdge
+from cotti_uvm import (
+    Bfm,
+    Coverage,
+    Item,
+    Sequence,
+    Tester,
+    config_db_get,
+    config_db_set,
+)
+
+##? DATA_WIDTH=32 DATA_LANE_WIDTH=8 ADDR_WIDTH_WORDS=3
+##? DATA_WIDTH=16 DATA_LANE_WIDTH=8 ADDR_WIDTH_WORDS=4
+##? DATA_WIDTH=8 DATA_LANE_WIDTH=8 ADDR_WIDTH_WORDS=2
+##? DATA_WIDTH=15 DATA_LANE_WIDTH=5 ADDR_WIDTH_WORDS=4
+
+RAM = []
 
 
-@cocotb.test
-async def test_ram_write_and_read_back_aligned(dut):
-    c = Clock(dut.clk, 10, "ns")
-    c.start()
+class RamItem(Item):
+    def __init__(self, raddr: int, waddr: int, we: int, wdata: int):
+        super().__init__()
+        self.raddr = raddr
+        self.waddr = waddr
+        self.we = we
+        self.wdata = wdata
 
-    dut.raddr.value = 0
-    dut.waddr.value = 0
-    dut.we.value = 0b1
+    def __eq__(self, other) -> bool:
+        return (self.addr == other.addr) and (self.we == other.we) and (self.wdata == other.wdata)
 
-    # Initialize the RAM
-    for i in range(8):
-        dut.waddr.value = i
-        dut.wdata.value = 0b000000001 << i
-        await RisingEdge(dut.clk)
-        await Timer(1, "ns")
-
-    # Read back all values, while writing new ones
-    # The read value should be the previous one
-    dut.we.value = 1
-    for i in range(8):
-        dut.waddr.value = i
-        dut.raddr.value = i
-        dut.wdata.value = 0b11 << i
-        await RisingEdge(dut.clk)
-        await Timer(1, "ns")
-        assert dut.rdata.value == 0b000000001 << (i)
-        assert dut.rwdata.value == 0b000000001 << (i)
-
-    # Check that the writes from the previous step went through.
-    # Also, see that the rwdata is working as expected
-    dut.we.value = 0
-    dut.wdata.value = 0b000000000
-    for i in range(8):
-        dut.raddr.value = i
-        dut.waddr.value = 7 - i
-        await RisingEdge(dut.clk)
-        await Timer(1, "ns")
-        assert dut.rdata.value == 0b11 << i
-        assert dut.rwdata.value == 0b110000000 >> i
-
-    # Reading and writing the same address should return the previous stored value
-    dut.we.value = 1
-    dut.waddr.value = 4
-    dut.raddr.value = 4
-    dut.wdata.value = 0
-    await RisingEdge(dut.clk)
-    await Timer(1, "ns")
-    assert dut.rdata.value == 0b000110000
-
-    await RisingEdge(dut.clk)
-    await Timer(1, "ns")
-    assert dut.rdata.value == 0
+    def __str__(self) -> str:
+        return f"raddr: {self.raddr}; waddr: {self.waddr}; we: {self.we}; wdata: {self.wdata}"
 
 
-@cocotb.test
-async def test_we_test(dut):
-    c = Clock(dut.clk, 10, "ns")
-    c.start()
+def golden_ref(item: RamItem) -> (int, int):
+    global RAM
+    rdata = RAM[item.raddr]
+    rwdata = RAM[item.waddr]
+    if item.we != 0:
+        data_width = config_db_get("DATA_WIDTH")
+        data_lane_width = config_db_get("DATA_LANE_WIDTH")
+        we_bits = int(data_width / data_lane_width)
 
-    dut.raddr.value = 3
-    dut.waddr.value = 3
-
-    # Write first value
-    dut.we.value = 1
-    dut.wdata.value = 0b101010101
-    await RisingEdge(dut.clk)
-
-    # With write enable disabled, the value should not be modified
-    # Anyways, the previous value is returned
-    dut.we.value = 0
-    dut.wdata.value = 0b000000000
-    await RisingEdge(dut.clk)
-    await Timer(1, "ns")
-    assert dut.rdata.value == 0b101010101
-
-    # Now, let write a new value
-    # Value 0x12345678 should be returned, since is the one
-    # stored in the memory
-    dut.we.value = 1
-    dut.wdata.value = 0b111100000
-    await RisingEdge(dut.clk)
-    await Timer(1, "ns")
-    assert dut.rdata.value == 0b101010101
-
-    # Now, if we read that address we should see the new value
-    await RisingEdge(dut.clk)
-    await Timer(1, "ns")
-    assert dut.rdata.value == 0b111100000
+        # The operation performed here is to only write on the corresponding
+        # data lane.
+        # E.g., for DATA_WIDTH = 8 && DATA_LANE_WIDTH = 4:
+        # 0bxxxxxxxx    mask would be 2**4 -1 = 15  =0b1111
+        # 0bxxxxyyyy    Write first lane (if we = 0bx1)
+        # 0byyyyxxxx    Write second lane (if we = 0b1x)
+        wdata = RAM[item.waddr]
+        mask = (2**data_lane_width) - 1
+        for i in range(we_bits):
+            if item.we & (1 << i) != 0:
+                wdata &= ~(mask << (i * data_lane_width))
+                wdata |= item.wdata & (mask << (i * data_lane_width))
+        RAM[item.waddr] = wdata
+    return (rdata, rwdata)
 
 
-@cocotb.test
-async def test_ram_size(dut):
-    c = Clock(dut.clk, 10, "ns")
-    c.start()
+class RamBfm(Bfm):
+    async def reset(self):
+        global RAM
+        self.dut.raddr.value = 0
+        for i in range(self.size):
+            await FallingEdge(self.dut.clk)
+            self.dut.waddr.value = i
+            self.dut.we.value = self.max_we
+            self.dut.wdata.value = random.randint(0, 2 ** (self.data_width - 1))
 
-    # Accessing last address should be OK
-    dut.raddr.value = 7
-    dut.waddr.value = 7
-    dut.we.value = 1
-    dut.wdata.value = 0
+        await FallingEdge(self.dut.clk)
+        self.dut.raddr.value = 0
+        self.dut.waddr.value = 0
+        self.dut.we.value = 0
+        self.dut.wdata.value = 0
 
-    await RisingEdge(dut.clk)
+    def on_start(self):
+        c = Clock(cocotb.top.clk, 2, "ns")
+        c.start()
+        self.data_width = int(self.dut.DATA_WIDTH.value)
+        config_db_set("DATA_WIDTH", self.data_width)
 
-    # Writing or reading to a value outside the RAM should make the test fail
-    try:
-        dut.raddr.value = 8
-        assert 0
-    except ValueError:
-        pass
+        self.data_lane_width = int(self.dut.DATA_LANE_WIDTH.value)
+        config_db_set("DATA_LANE_WIDTH", self.data_lane_width)
 
-    try:
-        dut.waddr.value = 8
-        assert 0
-    except ValueError:
-        pass
+        self.size = 2 ** int(self.dut.ADDR_WIDTH_WORDS.value)
+        config_db_set("SIZE", self.size)
 
-    try:
-        dut.wdata.value = 0b1111111111
-        assert 0
-    except ValueError:
-        pass
+        self.max_we = int(2 ** (self.data_width / self.data_lane_width) - 1)
+        config_db_set("MAX_WE", self.max_we)
 
-    try:
-        dut.we.value = 0b10
-        assert 0
-    except ValueError:
-        pass
+        # Set all values to random values before starting
+        global RAM
+        for _ in range(self.size):
+            RAM.append(0)
 
-    await RisingEdge(dut.clk)
+    async def input_driver(self):
+        self.dut.raddr.value = 0
+        self.dut.waddr.value = 0
+        self.dut.we.value = 0
+        self.dut.wdata.value = 0
+        while True:
+            await FallingEdge(self.dut.clk)
+            try:
+                item = self.input_driver_queue.get_nowait()
+                self.dut.raddr.value = item.raddr
+                self.dut.waddr.value = item.waddr
+                self.dut.we.value = item.we
+                self.dut.wdata.value = item.wdata
+            except QueueEmpty:
+                continue
+
+    async def input_monitor(self):
+        """An input transaction is considered as such whenever any of the arguments are different."""
+        prev_raddr = -1
+        prev_waddr = -1
+        prev_we = -1
+        prev_wdata = -1
+        while True:
+            await FallingEdge(self.dut.clk)
+            raddr = int(self.dut.raddr.value)
+            waddr = int(self.dut.waddr.value)
+            we = int(self.dut.we.value)
+            wdata = int(self.dut.wdata.value)
+            if (
+                (prev_raddr != raddr)
+                or (prev_waddr != waddr)
+                or (prev_we != we)
+                or (prev_wdata != wdata)
+            ):
+                item = RamItem(
+                    raddr=raddr,
+                    waddr=waddr,
+                    we=we,
+                    wdata=wdata,
+                )
+                self.input_monitor_queue.put_nowait(item)
+
+            prev_raddr = raddr
+            prev_waddr = waddr
+            prev_we = we
+            prev_wdata = wdata
+
+    async def output_monitor(self):
+        """An output transaction is considered whenever any of the inputs are different."""
+        prev_raddr = -1
+        prev_waddr = -1
+        prev_we = -1
+        prev_wdata = -1
+        while True:
+            await FallingEdge(self.dut.clk)
+            raddr = int(self.dut.raddr.value)
+            waddr = int(self.dut.waddr.value)
+            we = int(self.dut.we.value)
+            wdata = int(self.dut.wdata.value)
+            rdata = int(self.dut.rdata.value)
+            rwdata = int(self.dut.rwdata.value)
+            if (
+                (prev_raddr != raddr)
+                or (prev_waddr != waddr)
+                or (prev_we != we)
+                or (prev_wdata != wdata)
+            ):
+                self.output_monitor_queue.put_nowait((rdata, rwdata))
+
+            prev_raddr = raddr
+            prev_waddr = waddr
+            prev_we = we
+            prev_wdata = wdata
+
+
+class RamEnum(Enum):
+    FIRST_RADDR = (0,)
+    LAST_RADDR = (1,)
+    MULTIPLE_RW = (2,)
+    WE_NONE = (3,)
+    WE_FULL = (4,)
+    WE_SOME = (5,)
+    RW_SAME_ADDR = (6,)
+    FIRST_WADDR = (7,)
+    LAST_WADDR = 8
+
+
+class RamCoverage(Coverage):
+    coverage_enum = RamEnum
+    min_coverage_percentage = 100
+
+    def build_phase(self):
+        super().build_phase()
+
+        self.ram_size = config_db_get("SIZE")
+        self.max_we = config_db_get("MAX_WE")
+
+        self.read_counter = []
+        self.write_counter = []
+        for i in range(self.ram_size):
+            self.read_counter.append(0)
+            self.write_counter.append(0)
+
+    def item_to_coverage(self, item: RamItem, output) -> list[RamEnum]:
+        out = []
+
+        self.read_counter[item.raddr] += 1
+        self.write_counter[item.waddr] += 1
+
+        if item.raddr == 0:
+            out.append(RamEnum.FIRST_RADDR)
+
+        elif item.raddr == self.ram_size - 1:
+            out.append(RamEnum.LAST_RADDR)
+
+        if item.waddr == 0:
+            out.append(RamEnum.FIRST_WADDR)
+
+        elif item.waddr == self.ram_size - 1:
+            out.append(RamEnum.LAST_WADDR)
+
+        if item.we == 0:
+            out.append(RamEnum.WE_NONE)
+
+        elif item.we == self.max_we:
+            out.append(RamEnum.WE_FULL)
+            if self.max_we == 1:
+                out.append(RamEnum.WE_SOME)
+
+        else:
+            out.append(RamEnum.WE_SOME)
+
+        if item.waddr == item.raddr:
+            out.append(RamEnum.RW_SAME_ADDR)
+
+        if (self.read_counter[item.raddr] > 3 and self.write_counter[item.raddr] > 3) or (
+            self.read_counter[item.waddr] > 3 and self.write_counter[item.waddr] > 3
+        ):
+            out.append(RamEnum.MULTIPLE_RW)
+
+        return out
+
+
+class RamSequence(Sequence):
+    def __init__(self, name):
+        super().__init__(name)
+        self.ram_size = config_db_get("SIZE")
+        self.data_lane_width = config_db_get("DATA_LANE_WIDTH")
+        self.data_width = config_db_get("DATA_WIDTH")
+        self.max_we = config_db_get("MAX_WE")
+
+    def items(self) -> list[RamItem]:
+        out = []
+
+        for _ in range(self.ram_size * 4):
+            item = RamItem(
+                raddr=random.randint(0, self.ram_size - 1),
+                waddr=random.randint(0, self.ram_size - 1),
+                we=random.randint(0, self.max_we),
+                wdata=random.randint(0, (2**self.data_width - 1)),
+            )
+            out.append(item)
+        return out
+
+
+@pyuvm.test()
+class Test(Tester):
+    bfm = RamBfm
+    golden_ref = golden_ref
+    sequence = RamSequence
+    coverage = RamCoverage
+    end_delay_ns = 20

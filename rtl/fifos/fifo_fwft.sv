@@ -46,7 +46,7 @@ module fifo_fwft #(
     timeunit 1ns; timeprecision 1ns;
 
     localparam int NumWidth = $clog2(SIZE_WORDS + 1);
-    localparam int MemWidth = $clog2(SIZE_WORDS);
+    localparam int MemWidth = (SIZE_WORDS > 1) ? $clog2(SIZE_WORDS) : 1;
 
     logic [MemWidth-1:0] read_pointer, write_pointer;
     logic do_push, do_pop;
