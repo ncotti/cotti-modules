@@ -91,7 +91,7 @@ class RomCoverage(Coverage):
     coverage_enum = CoverageEnum
     min_coverage_percentage = 100
 
-    def item_to_coverage(self, item:RomItem) -> CoverageEnum:
+    def item_to_coverage(self, item:RomItem, output) -> CoverageEnum:
         result = None
         rom_size = config_db_get("ROM_SIZE")
         if (item.raddr == 0):

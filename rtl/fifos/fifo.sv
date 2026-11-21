@@ -81,7 +81,7 @@ module fifo #(
             write_pointer <= '0;
             dout_reg <= '0;
             pop_reg <= 1'b0;
-            empty_reg <= 1'b0;
+            empty_reg <= 1'b1;
         end else begin
             dout_reg  <= (push & pop & empty) ? din : dout;
             pop_reg   <= pop;

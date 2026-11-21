@@ -200,7 +200,7 @@ class RamCoverage(Coverage):
             self.read_counter.append(0)
             self.write_counter.append(0)
 
-    def item_to_coverage(self, item:RamItem) -> list[RamEnum]:
+    def item_to_coverage(self, item:RamItem, output) -> list[RamEnum]:
         out = []
 
         self.read_counter[item.raddr] += 1

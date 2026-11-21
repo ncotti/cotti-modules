@@ -181,7 +181,7 @@ class RamCoverage(Coverage):
         for i in range(self.ram_size):
             self.access_counter.append(0)
 
-    def item_to_coverage(self, item:RamItem) -> list[RamEnum]:
+    def item_to_coverage(self, item:RamItem, output) -> list[RamEnum]:
         out = []
 
         self.access_counter[item.addr] += 1
