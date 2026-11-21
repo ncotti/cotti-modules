@@ -11,10 +11,10 @@ from cocotb.queue import QueueEmpty
 import random
 
 ##? DATA_WIDTH=32 SIZE_WORDS=8
-###? DATA_WIDTH=16 SIZE_WORDS=5
-###? DATA_WIDTH=25 SIZE_WORDS=3
-###? DATA_WIDTH=7 SIZE_WORDS=2
-###? DATA_WIDTH=7 SIZE_WORDS=1
+##? DATA_WIDTH=16 SIZE_WORDS=5
+##? DATA_WIDTH=25 SIZE_WORDS=3
+##? DATA_WIDTH=7 SIZE_WORDS=2
+##? DATA_WIDTH=7 SIZE_WORDS=1
 
 class FifoItem(Item):
     def __init__(self, din:int=0, push:bool=False, pop:bool=False, rstN:bool = True):
@@ -236,7 +236,7 @@ class RandomSeq(Sequence):
 
         # More likely push than pop, fill the FIFO
         pushed_words = 0
-        while(pushed_words < size_words + 10):
+        while(pushed_words < size_words + 20):
             for i in range(size_words * 4):
                 push = random.choices([0, 1], weights=[20, 80])[0]
                 pop = random.choices([0, 1], weights=[80, 20])[0]
@@ -250,7 +250,7 @@ class RandomSeq(Sequence):
                     pushed_words += 1
 
         # More likely pop than push, empty the fifo
-        while (pushed_words > -10):
+        while (pushed_words > -20):
             push = random.choices([0, 1], weights=[80, 20])[0]
             pop = random.choices([0, 1], weights=[20, 80])[0]
             item = FifoItem(
@@ -263,7 +263,7 @@ class RandomSeq(Sequence):
                 pushed_words -= 1
 
         # Sprinkle some reset behavior
-        for i in range(size_words * 4 + 20):
+        for i in range(size_words * 4 + 30):
             item = FifoItem(
                 din = random.randint(0, (2**data_width) -1),
                 push= 1,

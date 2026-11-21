@@ -226,7 +226,7 @@ class RandomSeq(Sequence):
 
         # More likely push than pop, fill the FIFO
         pushed_words = 0
-        while(pushed_words < size_words + 10):
+        while(pushed_words < size_words + 20):
             for i in range(size_words * 4):
                 push = random.choices([0, 1], weights=[20, 80])[0]
                 pop = random.choices([0, 1], weights=[80, 20])[0]
@@ -240,7 +240,7 @@ class RandomSeq(Sequence):
                     pushed_words += 1
 
         # More likely pop than push, empty the fifo
-        while (pushed_words > -10):
+        while (pushed_words > -20):
             push = random.choices([0, 1], weights=[80, 20])[0]
             pop = random.choices([0, 1], weights=[20, 80])[0]
             item = FifoItem(
@@ -253,7 +253,7 @@ class RandomSeq(Sequence):
                 pushed_words -= 1
 
         # Sprinkle some reset behavior
-        for i in range(size_words * 4 + 20):
+        for i in range(size_words * 4 + 30):
             item = FifoItem(
                 din = random.randint(0, (2**data_width) -1),
                 push= 1,
