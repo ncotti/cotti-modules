@@ -10,6 +10,12 @@ from cocotb.triggers import FallingEdge
 from cocotb.queue import QueueEmpty
 import random
 
+##? DATA_WIDTH=32 SIZE_WORDS=8
+##? DATA_WIDTH=16 SIZE_WORDS=5
+##? DATA_WIDTH=25 SIZE_WORDS=3
+##? DATA_WIDTH=7 SIZE_WORDS=2
+##? DATA_WIDTH=7 SIZE_WORDS=1
+
 class FifoItem(Item):
     def __init__(self, din:int=0, push:bool=False, pop:bool=False, rstN:bool = True):
         super().__init__("fifo_item")
@@ -247,7 +253,7 @@ class RandomSeq(Sequence):
                 pushed_words -= 1
 
         # Sprinkle some reset behavior
-        for i in range(size_words * 6):
+        for i in range(size_words * 4 + 20):
             item = FifoItem(
                 din = random.randint(0, (2**data_width) -1),
                 push= 1,
