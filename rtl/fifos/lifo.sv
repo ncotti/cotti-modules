@@ -43,22 +43,22 @@ module lifo #(
     timeunit 1ns; timeprecision 1ns;
 
     localparam int NumWidth = $clog2(SIZE_WORDS + 1);
-    localparam int MemWidth = $clog2(SIZE_WORDS);
+    localparam int MemWidth = (SIZE_WORDS > 1) ? $clog2(SIZE_WORDS) : 1;
 
     logic [MemWidth-1:0] read_pointer, write_pointer;
     logic do_push, do_pop;
     logic we;
     logic [DATA_WIDTH-1:0] ram_dout, dout_reg;
-    logic pop_reg, empty_reg;
+    logic pop_reg, empty_reg, push_reg;
 
     assign do_push = (push & ~full) | (push & pop);
     assign do_pop = (pop & ~empty) | (push & pop);
-    assign we = rstN & do_push;
+    assign we = rstN & (push & ~full);
 
     assign full = (num == NumWidth'(SIZE_WORDS));
     assign empty = (num == '0);
 
-    assign dout = (pop_reg & ~empty_reg) ? ram_dout : dout_reg;
+    assign dout = (pop_reg & ~empty_reg & ~push_reg) ? ram_dout : dout_reg;
 
     ram_simple_dual_port #(
         .DATA_WIDTH(DATA_WIDTH),
@@ -80,10 +80,12 @@ module lifo #(
             write_pointer <= '0;
             dout_reg <= '0;
             pop_reg <= 1'b0;
+            push_reg <= 1'b0;
             empty_reg <= 1'b0;
         end else begin
-            dout_reg  <= (push & pop & empty) ? din : dout;
+            dout_reg  <= (push & pop) ? din : dout;
             pop_reg   <= pop;
+            push_reg <= push;
             empty_reg <= empty;
 
             case ({
@@ -102,7 +104,7 @@ module lifo #(
                 2'b11: begin
                     num <= num;
                     write_pointer <= write_pointer;
-                    read_pointer <= write_pointer;
+                    read_pointer <= read_pointer;
                 end
                 default: begin
                     num <= num;
