@@ -16,8 +16,9 @@ import random
 ##? DATA_WIDTH=7 SIZE_WORDS=2
 ##? DATA_WIDTH=7 SIZE_WORDS=1
 
+
 class FifoItem(Item):
-    def __init__(self, din:int=0, push:bool=False, pop:bool=False, rstN:bool = True):
+    def __init__(self, din: int = 0, push: bool = False, pop: bool = False, rstN: bool = True):
         super().__init__("fifo_item")
         self.din = din
         self.push = push
@@ -25,16 +26,22 @@ class FifoItem(Item):
         self.rstN = rstN
 
     def __eq__(self, other):
-        return ((self.din == other.din) and
-                (self.push == other.push) and
-                (self.pop == other.pop))
+        return (self.din == other.din) and (self.push == other.push) and (self.pop == other.pop)
 
     def __str__(self):
         return f"din: {self.din:#X}; push: {self.push}; pop: {self.pop}"
 
 
 class FifoOut:
-    def __init__(self, dout:int, empty:bool, full:bool, num:int, prev_full:bool=False, prev_empty:bool=True):
+    def __init__(
+        self,
+        dout: int,
+        empty: bool,
+        full: bool,
+        num: int,
+        prev_full: bool = False,
+        prev_empty: bool = True,
+    ):
         self.dout = dout
         self.empty = empty
         self.full = full
@@ -44,46 +51,49 @@ class FifoOut:
 
     def __eq__(self, other):
         return (
-            (self.dout == other.dout) and
-            (self.empty == other.empty) and
-            (self.full == other.full) and
-            (self.num == other.num))
+            (self.dout == other.dout)
+            and (self.empty == other.empty)
+            and (self.full == other.full)
+            and (self.num == other.num)
+        )
 
     def __str__(self):
         return f"Dout: {self.dout:#X}, num: {self.num}, empty: {self.empty}, full: {self.full}"
 
+
 FIFO = []
 LAST_FIFO_OUTPUT = 0
+
 
 def golden_ref(item: FifoItem) -> FifoOut:
     global FIFO
     global LAST_FIFO_OUTPUT
     size_words = config_db_get("SIZE_WORDS")
 
-    if (not item.rstN):
+    if not item.rstN:
         dout = 0
         FIFO = []
     else:
-        if (not item.pop and not item.push):
+        if not item.pop and not item.push:
             dout = LAST_FIFO_OUTPUT
-        elif (not item.pop and item.push):
-            if (len(FIFO) == 0):
+        elif not item.pop and item.push:
+            if len(FIFO) == 0:
                 dout = item.din
             else:
                 dout = LAST_FIFO_OUTPUT
 
-            if (len(FIFO) < size_words):
+            if len(FIFO) < size_words:
                 FIFO.append(item.din)
-        elif (item.pop and not item.push):
-            if (len(FIFO) == 1):
+        elif item.pop and not item.push:
+            if len(FIFO) == 1:
                 FIFO.pop(0)
                 dout = LAST_FIFO_OUTPUT
-            elif (len(FIFO) > 1):
+            elif len(FIFO) > 1:
                 dout = FIFO.pop(1)
             else:
                 dout = LAST_FIFO_OUTPUT
         else:
-            if (len(FIFO) <= 1):
+            if len(FIFO) <= 1:
                 dout = item.din
             else:
                 FIFO.append(item.din)
@@ -99,6 +109,7 @@ def golden_ref(item: FifoItem) -> FifoOut:
         full=full,
         num=num,
     )
+
 
 class FifoBfm(Bfm):
     def on_start(self):
@@ -141,7 +152,7 @@ class FifoBfm(Bfm):
             pop = bool(self.dut.pop.value)
             rstN = bool(self.dut.rstN.value)
 
-            if (push or pop or not rstN):
+            if push or pop or not rstN:
                 din = int(self.dut.din.value)
                 item = FifoItem(
                     din=din,
@@ -165,9 +176,10 @@ class FifoBfm(Bfm):
             empty = bool(self.dut.empty.value)
             dout = int(self.dut.dout.value)
 
-            if (push or pop or not rstN):
-                out = FifoOut(dout = dout,
-                    empty = empty,
+            if push or pop or not rstN:
+                out = FifoOut(
+                    dout=dout,
+                    empty=empty,
                     full=full,
                     num=num,
                     prev_full=prev_full,
@@ -179,54 +191,56 @@ class FifoBfm(Bfm):
 
 
 class FifoEnum(Enum):
-    FULL=0,
-    EMPTY=1,
-    NO_POP_NO_PUSH=2,
-    NO_POP_PUSH=3,
-    POP_NO_PUSH=4,
-    POP_PUSH=5,
-    PUSH_ON_FULL=6,
-    POP_ON_EMPTY=7,
-    PUSH_POP_ON_EMPTY=8,
-    PUSH_POP_ON_FULL=9,
-    RESET_AND_NOT_EMPTY=10
+    FULL = (0,)
+    EMPTY = (1,)
+    NO_POP_NO_PUSH = (2,)
+    NO_POP_PUSH = (3,)
+    POP_NO_PUSH = (4,)
+    POP_PUSH = (5,)
+    PUSH_ON_FULL = (6,)
+    POP_ON_EMPTY = (7,)
+    PUSH_POP_ON_EMPTY = (8,)
+    PUSH_POP_ON_FULL = (9,)
+    RESET_AND_NOT_EMPTY = 10
+
 
 class FifoCoverage(Coverage):
     coverage_enum = FifoEnum
 
-    def item_to_coverage(self, item:FifoItem, output:FifoOut) -> list[FifoEnum]:
+    def item_to_coverage(self, item: FifoItem, output: FifoOut) -> list[FifoEnum]:
         out = []
-        if (output.empty):
+        if output.empty:
             out.append(FifoEnum.EMPTY)
 
-        if(output.full):
+        if output.full:
             out.append(FifoEnum.FULL)
 
-        if(not item.pop and not item.push):
+        if not item.pop and not item.push:
             out.append(FifoEnum.NO_POP_NO_PUSH)
-        elif(not item.pop and item.push):
+        elif not item.pop and item.push:
             out.append(FifoEnum.NO_POP_PUSH)
-        elif(item.pop and not item.push):
+        elif item.pop and not item.push:
             out.append(FifoEnum.POP_NO_PUSH)
         else:
             out.append(FifoEnum.POP_PUSH)
 
-        if (item.push and output.prev_full):
+        if item.push and output.prev_full:
             out.append(FifoEnum.PUSH_ON_FULL)
 
-        if (item.pop and output.prev_empty):
+        if item.pop and output.prev_empty:
             out.append(FifoEnum.POP_ON_EMPTY)
 
-        if (item.pop and item.push and output.prev_empty):
+        if item.pop and item.push and output.prev_empty:
             out.append(FifoEnum.PUSH_POP_ON_EMPTY)
 
-        if (item.pop and item.push and output.prev_full):
+        if item.pop and item.push and output.prev_full:
             out.append(FifoEnum.PUSH_POP_ON_FULL)
 
-        if (not item.rstN and not output.prev_empty):
+        if not item.rstN and not output.prev_empty:
             out.append(FifoEnum.RESET_AND_NOT_EMPTY)
 
         return out
+
 
 class RandomSeq(Sequence):
     def items(self) -> list[FifoItem]:
@@ -236,43 +250,44 @@ class RandomSeq(Sequence):
 
         # More likely push than pop, fill the FIFO
         pushed_words = 0
-        while(pushed_words < size_words + 20):
+        while pushed_words < size_words + 20:
             for i in range(size_words * 4):
                 push = random.choices([0, 1], weights=[20, 80])[0]
                 pop = random.choices([0, 1], weights=[80, 20])[0]
                 item = FifoItem(
-                    din = random.randint(0, (2**data_width) -1),
-                    push= push,
-                    pop= pop,
+                    din=random.randint(0, (2**data_width) - 1),
+                    push=push,
+                    pop=pop,
                 )
                 out.append(item)
-                if (push and not pop):
+                if push and not pop:
                     pushed_words += 1
 
         # More likely pop than push, empty the fifo
-        while (pushed_words > -20):
+        while pushed_words > -20:
             push = random.choices([0, 1], weights=[80, 20])[0]
             pop = random.choices([0, 1], weights=[20, 80])[0]
             item = FifoItem(
-                din = random.randint(0, (2**data_width) -1),
-                push= push,
-                pop= pop,
+                din=random.randint(0, (2**data_width) - 1),
+                push=push,
+                pop=pop,
             )
             out.append(item)
-            if (pop and not push):
+            if pop and not push:
                 pushed_words -= 1
 
         # Sprinkle some reset behavior
         for i in range(size_words * 4 + 30):
             item = FifoItem(
-                din = random.randint(0, (2**data_width) -1),
-                push= 1,
-                pop= 0,
-                rstN= random.choices([0, 1], weights=[10, 90])[0],
+                din=random.randint(0, (2**data_width) - 1),
+                push=1,
+                pop=0,
+                rstN=random.choices([0, 1], weights=[10, 90])[0],
             )
             out.append(item)
 
         return out
+
 
 @pyuvm.test()
 class RandomTest(Tester):

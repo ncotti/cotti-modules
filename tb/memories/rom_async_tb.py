@@ -21,13 +21,14 @@ from cotti_uvm.bfm import Bfm
 ##? DATA_WIDTH=16 ADDR_WIDTH_WORDS=5 ROM_FILE="tb/memories/hex/rom_w16_l5.hex"
 ##? DATA_WIDTH=8 ADDR_WIDTH_WORDS=3 ROM_FILE="tb/memories/hex/rom_w8_l3.hex"
 
+
 class RomItem(Item):
-    def __init__(self, raddr:int=0):
+    def __init__(self, raddr: int = 0):
         super().__init__("rom_item")
         self.raddr = raddr
 
     def __eq__(self, other):
-        return (self.raddr == other.raddr)
+        return self.raddr == other.raddr
 
     def __str__(self):
         return f"raddr: {self.raddr}"
@@ -35,9 +36,11 @@ class RomItem(Item):
 
 ROM = []
 
+
 def golden_ref(item: RomItem):
     """ROM's golden reference function"""
     return ROM[item.raddr]
+
 
 class RomBfm(Bfm):
     async def input_driver(self):
@@ -57,7 +60,7 @@ class RomBfm(Bfm):
         while True:
             await Timer(1, "ns")
             raddr = int(self.dut.raddr.value)
-            if (last_raddr != raddr):
+            if last_raddr != raddr:
                 self.input_monitor_queue.put_nowait(RomItem(raddr))
 
             last_raddr = raddr
@@ -67,7 +70,7 @@ class RomBfm(Bfm):
         while True:
             await Timer(1, "ns")
             rdata = int(self.dut.rdata.value)
-            if (last_rdata != rdata):
+            if last_rdata != rdata:
                 self.output_monitor_queue.put_nowait(rdata)
 
             last_rdata = rdata
@@ -82,25 +85,28 @@ class RomBfm(Bfm):
         global ROM
         ROM = read_hex(self.dut.ROM_FILE.value.decode("utf-8"))
 
+
 class CoverageEnum(Enum):
-    FIRST_ADDR = 0,
-    LAST_ADDR = 1,
-    MIDDLE_ADDR = 2,
+    FIRST_ADDR = (0,)
+    LAST_ADDR = (1,)
+    MIDDLE_ADDR = (2,)
+
 
 class RomCoverage(Coverage):
     coverage_enum = CoverageEnum
     min_coverage_percentage = 100
 
-    def item_to_coverage(self, item:RomItem, output) -> CoverageEnum:
+    def item_to_coverage(self, item: RomItem, output) -> CoverageEnum:
         result = None
         rom_size = config_db_get("ROM_SIZE")
-        if (item.raddr == 0):
+        if item.raddr == 0:
             result = CoverageEnum.FIRST_ADDR
-        elif (item.raddr == rom_size - 1):
+        elif item.raddr == rom_size - 1:
             result = CoverageEnum.LAST_ADDR
         else:
             result = CoverageEnum.MIDDLE_ADDR
         return result
+
 
 class SweepSeq(Sequence):
     def items(self) -> list[RomItem]:
@@ -111,10 +117,11 @@ class SweepSeq(Sequence):
             out.append(item)
         return out
 
+
 @pyuvm.test()
 class SweepTest(Tester):
     bfm = RomBfm
     golden_ref = golden_ref
     sequence = SweepSeq
     coverage = RomCoverage
-    end_delay_ns=10
+    end_delay_ns = 10

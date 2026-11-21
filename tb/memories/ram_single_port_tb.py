@@ -26,6 +26,7 @@ from cotti_uvm import (
 
 RAM = []
 
+
 class RamItem(Item):
     def __init__(self, addr: int, we: int, wdata: int):
         super().__init__()
@@ -34,9 +35,7 @@ class RamItem(Item):
         self.wdata = wdata
 
     def __eq__(self, other) -> bool:
-        return ((self.addr == other.addr) and
-            (self.we == other.we) and
-            (self.wdata == other.wdata))
+        return (self.addr == other.addr) and (self.we == other.we) and (self.wdata == other.wdata)
 
     def __str__(self) -> str:
         return f"Addr: {self.addr}; we: {self.we}; wdata: {self.wdata}"
@@ -45,7 +44,7 @@ class RamItem(Item):
 def golden_ref(item: RamItem) -> int:
     global RAM
     prev_value = RAM[item.addr]
-    if (item.we != 0):
+    if item.we != 0:
         data_width = config_db_get("DATA_WIDTH")
         data_lane_width = config_db_get("DATA_LANE_WIDTH")
         we_bits = int(data_width / data_lane_width)
@@ -57,13 +56,14 @@ def golden_ref(item: RamItem) -> int:
         # 0bxxxxyyyy    Write first lane (if we = 0bx1)
         # 0byyyyxxxx    Write second lane (if we = 0b1x)
         wdata = prev_value
-        mask = (2 ** data_lane_width) - 1
+        mask = (2**data_lane_width) - 1
         for i in range(we_bits):
-            if (item.we & (1 << i) != 0):
+            if item.we & (1 << i) != 0:
                 wdata &= ~(mask << (i * data_lane_width))
                 wdata |= item.wdata & (mask << (i * data_lane_width))
         RAM[item.addr] = wdata
     return prev_value
+
 
 class RamBfm(Bfm):
     async def reset(self):
@@ -72,7 +72,7 @@ class RamBfm(Bfm):
             await FallingEdge(self.dut.clk)
             self.dut.addr.value = i
             self.dut.we.value = self.max_we
-            self.dut.wdata.value = random.randint(0, 2**(self.data_width-1))
+            self.dut.wdata.value = random.randint(0, 2 ** (self.data_width - 1))
 
         await FallingEdge(self.dut.clk)
         self.dut.addr.value = 0
@@ -91,14 +91,13 @@ class RamBfm(Bfm):
         self.size = 2 ** int(self.dut.ADDR_WIDTH_WORDS.value)
         config_db_set("SIZE", self.size)
 
-        self.max_we = int(2**(self.data_width / self.data_lane_width) - 1)
+        self.max_we = int(2 ** (self.data_width / self.data_lane_width) - 1)
         config_db_set("MAX_WE", self.max_we)
 
         # Set all values to random values before starting
         global RAM
         for _ in range(self.size):
             RAM.append(0)
-
 
     async def input_driver(self):
         self.dut.addr.value = 0
@@ -124,9 +123,7 @@ class RamBfm(Bfm):
             addr = int(self.dut.addr.value)
             we = int(self.dut.we.value)
             wdata = int(self.dut.wdata.value)
-            if ((prev_addr != addr) or
-                (prev_we != we) or
-                (prev_wdata != wdata)):
+            if (prev_addr != addr) or (prev_we != we) or (prev_wdata != wdata):
                 item = RamItem(
                     addr=addr,
                     we=we,
@@ -149,9 +146,7 @@ class RamBfm(Bfm):
             we = int(self.dut.we.value)
             wdata = int(self.dut.wdata.value)
             rdata = int(self.dut.rdata.value)
-            if ((prev_addr != addr) or
-                (prev_we != we) or
-                (prev_wdata != wdata)):
+            if (prev_addr != addr) or (prev_we != we) or (prev_wdata != wdata):
                 self.output_monitor_queue.put_nowait(rdata)
 
             prev_addr = addr
@@ -160,12 +155,13 @@ class RamBfm(Bfm):
 
 
 class RamEnum(Enum):
-    FIRST_ADDR = 0,
-    LAST_ADDR = 1,
-    MULTIPLE_ACCESS = 2,
-    WE_NONE = 3,
-    WE_FULL = 4,
+    FIRST_ADDR = (0,)
+    LAST_ADDR = (1,)
+    MULTIPLE_ACCESS = (2,)
+    WE_NONE = (3,)
+    WE_FULL = (4,)
     WE_SOME = 5
+
 
 class RamCoverage(Coverage):
     coverage_enum = RamEnum
@@ -181,32 +177,33 @@ class RamCoverage(Coverage):
         for i in range(self.ram_size):
             self.access_counter.append(0)
 
-    def item_to_coverage(self, item:RamItem, output) -> list[RamEnum]:
+    def item_to_coverage(self, item: RamItem, output) -> list[RamEnum]:
         out = []
 
         self.access_counter[item.addr] += 1
 
-        if (item.addr == 0):
+        if item.addr == 0:
             out.append(RamEnum.FIRST_ADDR)
 
-        elif (item.addr == self.ram_size -1):
+        elif item.addr == self.ram_size - 1:
             out.append(RamEnum.LAST_ADDR)
 
-        if (item.we == 0):
+        if item.we == 0:
             out.append(RamEnum.WE_NONE)
 
-        elif (item.we == self.max_we):
+        elif item.we == self.max_we:
             out.append(RamEnum.WE_FULL)
-            if (self.max_we == 1):
+            if self.max_we == 1:
                 out.append(RamEnum.WE_SOME)
 
         else:
             out.append(RamEnum.WE_SOME)
 
-        if (self.access_counter[item.addr] > 3):
+        if self.access_counter[item.addr] > 3:
             out.append(RamEnum.MULTIPLE_ACCESS)
 
         return out
+
 
 class RamSequence(Sequence):
     def __init__(self, name):
@@ -219,14 +216,15 @@ class RamSequence(Sequence):
     def items(self) -> list[RamItem]:
         out = []
 
-        for _ in range(self.ram_size*4):
+        for _ in range(self.ram_size * 4):
             item = RamItem(
-                addr=random.randint(0, self.ram_size-1),
+                addr=random.randint(0, self.ram_size - 1),
                 we=random.randint(0, self.max_we),
                 wdata=random.randint(0, (2**self.data_width - 1)),
             )
             out.append(item)
         return out
+
 
 @pyuvm.test()
 class Test(Tester):
