@@ -1,6 +1,6 @@
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import Timer, FallingEdge, RisingEdge, Edge, with_timeout, SimTimeoutError
+from cocotb.triggers import Timer, RisingEdge, with_timeout, SimTimeoutError
 import random
 
 
@@ -50,12 +50,18 @@ async def check_clock_polarity(dut):
     """Checks that, no matter when you changed the div argument, the fast
     and slow clocks share the same polarity."""
     div = int(dut.div.value)
+    pol = int(dut.pol.value)
     if (div == 0):
         return
+
     await RisingEdge(dut.clk_s)
     await Timer(CLOCK_T_PS / 4, "ps")
+
     assert dut.clk_s.value == 1
-    assert dut.clk_f.value == 1
+    if (pol):
+        assert dut.clk_f.value == 1
+    else:
+        assert dut.clk_f.value == 0
 
 @cocotb.test(timeout_time=10, timeout_unit="us")
 async def test_divider(dut):
@@ -68,20 +74,17 @@ async def test_divider(dut):
 
     div_values.append(0)
 
-    # for i in range(5):
-    #     div_values.append(random.randint(0, max_div))
-
-    for i in range(6):
-        div_values.append(i)
+    for i in range(10):
+        div_values.append(random.randint(1, 100))
 
     div_values.append(max_div)
-    div_values.append(0)
 
     for div in div_values:
         # Change input in a random time
         wait = random.randint(1, 10)
         await Timer(wait, "ps")
         dut.div.value = div
+        dut.pol.value = random.randint(0, 1)
         await Timer(1, "ps")
         await check_clock_polarity(dut)
         await check_clock_period(dut)
