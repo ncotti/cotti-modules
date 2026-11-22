@@ -5,26 +5,26 @@ import random
 
 
 # Input clock period, must be divisible by 4
-CLOCK_T_NS = 2
+CLOCK_T_PS = 4
 
-assert CLOCK_T_NS % 2 == 0
+assert CLOCK_T_PS % 4 == 0
 
-async def clock_is_ok(dut) -> None:
+async def check_clock_period(dut) -> None:
     """Checks the clock divider and asserts that the output clock has the right freq."""
 
     div = int(dut.div.value)
     div_width = int(dut.DIV_WIDTH.value)
     max_div = (2 ** div_width) - 1
 
-    # Given that the clock_f period is 1ns, the clock divider multiplies the period by "N",
+    # Given that the clock_f period is "T", the clock divider multiplies the period by "N",
     # Therefore, the longest period is just "N * T"
-    max_clock_period_ns = max_div * CLOCK_T_NS
+    max_clock_period_ps = max_div * CLOCK_T_PS
 
     # Since the expected output frequency is "F / N", the output period is "T * N".
-    expected_clock_period_ns = div * CLOCK_T_NS
+    expected_clock_period_ps = div * CLOCK_T_PS
 
     try:
-        await with_timeout(RisingEdge(dut.clk_s), max_clock_period_ns, "ns")
+        await with_timeout(RisingEdge(dut.clk_s), max_clock_period_ps, "ps")
     except SimTimeoutError:
         if (div == 0):
             return
@@ -37,10 +37,10 @@ async def clock_is_ok(dut) -> None:
 
     # Check three full periods of the signal
     for _ in range(3):
-        for i in range(expected_clock_period_ns):
-            await Timer(CLOCK_T_NS/2, "ns")
+        for i in range(expected_clock_period_ps):
+            await Timer(1, "ps")
             # Clock should be up the first half of the period and down the second half
-            if (i < expected_clock_period_ns / 2):
+            if (i < expected_clock_period_ps / 2):
                 assert dut.clk_s.value == 1
             else:
                 assert dut.clk_s.value == 0
@@ -53,13 +53,13 @@ async def check_clock_polarity(dut):
     if (div == 0):
         return
     await RisingEdge(dut.clk_s)
-    await Timer(CLOCK_T_NS / 4, "ns")
+    await Timer(CLOCK_T_PS / 4, "ps")
     assert dut.clk_s.value == 1
     assert dut.clk_f.value == 1
 
 @cocotb.test
 async def test_divider(dut):
-    Clock(dut.clk_f, CLOCK_T_NS, "ns").start()
+    Clock(dut.clk_f, CLOCK_T_PS, "ps").start()
 
     div_width = int(dut.DIV_WIDTH.value)
     max_div = (2 ** div_width) - 1
@@ -80,8 +80,8 @@ async def test_divider(dut):
     for div in div_values:
         # Change input in a random time
         wait = random.randint(1, 10)
-        await Timer(wait, "ns")
+        await Timer(wait, "ps")
         dut.div.value = div
-        await Timer(1, "ns")
+        await Timer(1, "ps")
         #await check_clock_polarity(dut)
-        await clock_is_ok(dut)
+        await check_clock_period(dut)
