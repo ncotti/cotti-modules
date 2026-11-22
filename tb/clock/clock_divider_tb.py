@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026  Nicolas Gabriel Cotti
+
+import random
+
+import cocotb
+from cocotb.clock import Clock
+from cocotb.triggers import RisingEdge, SimTimeoutError, Timer, with_timeout
+
+# Input clock period, must be divisible by 4
+CLOCK_T_PS = 4
+
+assert CLOCK_T_PS % 4 == 0
+
+
+async def check_clock_period(dut) -> None:
+    """Checks the clock divider and asserts that the output clock has the right freq."""
+
+    div = int(dut.div.value)
+    div_width = int(dut.DIV_WIDTH.value)
+    max_div = (2**div_width) - 1
+
+    # Given that the clock_f period is "T", the clock divider multiplies the period by "N",
+    # Therefore, the longest period is just "N * T"
+    max_clock_period_ps = max_div * CLOCK_T_PS
+
+    # Since the expected output frequency is "F / N", the output period is "T * N".
+    expected_clock_period_ps = div * CLOCK_T_PS
+
+    if div == 0:
+        return
+
+    try:
+        await with_timeout(RisingEdge(dut.clk_s), max_clock_period_ps, "ps")
+    except SimTimeoutError:
+        cocotb.log.error("Clock was not risen.")
+        assert False
+
+    # Since we just waited for its RisingEdge, the value should be 1
+    assert dut.clk_s.value == 1
+
+    # Check three full periods of the signal
+    for _ in range(3):
+        for i in range(expected_clock_period_ps):
+            await Timer(1, "ps")
+            # Clock should be up the first half of the period and down the second half
+            if i < expected_clock_period_ps / 2:
+                assert dut.clk_s.value == 1
+            else:
+                assert dut.clk_s.value == 0
+
+
+async def check_clock_polarity(dut):
+    """Checks that, no matter when you changed the div argument, the fast
+    and slow clocks share the same polarity."""
+    div = int(dut.div.value)
+    pol = int(dut.pol.value)
+    if div == 0:
+        return
+
+    await RisingEdge(dut.clk_s)
+    await Timer(CLOCK_T_PS / 4, "ps")
+
+    assert dut.clk_s.value == 1
+    if pol:
+        assert dut.clk_f.value == 1
+    else:
+        assert dut.clk_f.value == 0
+
+
+@cocotb.test(timeout_time=10, timeout_unit="us")
+async def test_divider(dut):
+    Clock(dut.clk_f, CLOCK_T_PS, "ps").start()
+
+    div_width = int(dut.DIV_WIDTH.value)
+    max_div = (2**div_width) - 1
+
+    div_values = []
+
+    div_values.append(0)
+
+    for i in range(10):
+        div_values.append(random.randint(1, 100))
+
+    div_values.append(max_div)
+
+    for div in div_values:
+        # Change input in a random time
+        wait = random.randint(1, 10)
+        await Timer(wait, "ps")
+        dut.div.value = div
+        dut.pol.value = random.randint(0, 1)
+        await Timer(1, "ps")
+        await check_clock_polarity(dut)
+        await check_clock_period(dut)
