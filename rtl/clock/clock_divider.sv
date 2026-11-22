@@ -18,35 +18,28 @@ assign change_clock = (real_div != real_div_reg || div == '0);
 
 always_ff @(posedge clk_f, negedge clk_f) begin
     if (div == '0) begin
-        counter <= '0;
+        counter <= '1;
         clk_s <= 1'b0;
-        real_div_reg <= '0;
+        real_div_reg <= '1;
     end
     else begin
         if (counter == real_div_reg) begin
-
-            if (change_clock) begin
-                if (clk_s) begin
-                    // The clock is high, complete the period
+            if (change_clock & ~clk_s) begin
+                if (clk_f) begin
+                    // Both clocks are on rising edge, can change safely
                     counter <= '0;
                     clk_s <= ~clk_s;
-                    real_div_reg <= real_div_reg;
+                    real_div_reg <= real_div;
                 end else begin
-                    if (clk_f) begin
-                        // Both clocks are on rising edge, can change safely
-                        counter <= '0;
-                        clk_s <= ~clk_s;
-                        real_div_reg <= real_div;
-                    end else begin
-                        counter <= counter;
-                        clk_s <= clk_s;
-                        real_div_reg <= real_div_reg;
-                    end
+                    // Wait until rising edge of clk_f
+                    counter <= counter;
+                    clk_s <= clk_s;
+                    real_div_reg <= real_div_reg;
                 end
             end else begin
                 counter <= '0;
                 clk_s <= ~clk_s;
-                real_div_reg <= real_div;
+                real_div_reg <= real_div_reg;
             end
         end else begin
             counter <= counter + 1;

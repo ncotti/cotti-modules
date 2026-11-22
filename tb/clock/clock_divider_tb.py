@@ -23,14 +23,14 @@ async def check_clock_period(dut) -> None:
     # Since the expected output frequency is "F / N", the output period is "T * N".
     expected_clock_period_ps = div * CLOCK_T_PS
 
+    if (div == 0):
+        return
+
     try:
         await with_timeout(RisingEdge(dut.clk_s), max_clock_period_ps, "ps")
     except SimTimeoutError:
-        if (div == 0):
-            return
-        else:
-            cocotb.log.error("Clock was not risen.")
-            assert False
+        cocotb.log.error("Clock was not risen.")
+        assert False
 
     # Since we just waited for its RisingEdge, the value should be 1
     assert dut.clk_s.value == 1
