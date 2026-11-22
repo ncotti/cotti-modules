@@ -57,7 +57,7 @@ async def check_clock_polarity(dut):
     assert dut.clk_s.value == 1
     assert dut.clk_f.value == 1
 
-@cocotb.test
+@cocotb.test(timeout_time=10, timeout_unit="us")
 async def test_divider(dut):
     Clock(dut.clk_f, CLOCK_T_PS, "ps").start()
 
@@ -83,5 +83,5 @@ async def test_divider(dut):
         await Timer(wait, "ps")
         dut.div.value = div
         await Timer(1, "ps")
-        #await check_clock_polarity(dut)
+        await check_clock_polarity(dut)
         await check_clock_period(dut)
