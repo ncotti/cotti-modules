@@ -1,20 +1,21 @@
-import cocotb
-from cocotb.clock import Clock
-from cocotb.triggers import Timer, RisingEdge, with_timeout, SimTimeoutError
 import random
 
+import cocotb
+from cocotb.clock import Clock
+from cocotb.triggers import RisingEdge, SimTimeoutError, Timer, with_timeout
 
 # Input clock period, must be divisible by 4
 CLOCK_T_PS = 4
 
 assert CLOCK_T_PS % 4 == 0
 
+
 async def check_clock_period(dut) -> None:
     """Checks the clock divider and asserts that the output clock has the right freq."""
 
     div = int(dut.div.value)
     div_width = int(dut.DIV_WIDTH.value)
-    max_div = (2 ** div_width) - 1
+    max_div = (2**div_width) - 1
 
     # Given that the clock_f period is "T", the clock divider multiplies the period by "N",
     # Therefore, the longest period is just "N * T"
@@ -23,7 +24,7 @@ async def check_clock_period(dut) -> None:
     # Since the expected output frequency is "F / N", the output period is "T * N".
     expected_clock_period_ps = div * CLOCK_T_PS
 
-    if (div == 0):
+    if div == 0:
         return
 
     try:
@@ -40,7 +41,7 @@ async def check_clock_period(dut) -> None:
         for i in range(expected_clock_period_ps):
             await Timer(1, "ps")
             # Clock should be up the first half of the period and down the second half
-            if (i < expected_clock_period_ps / 2):
+            if i < expected_clock_period_ps / 2:
                 assert dut.clk_s.value == 1
             else:
                 assert dut.clk_s.value == 0
@@ -51,24 +52,25 @@ async def check_clock_polarity(dut):
     and slow clocks share the same polarity."""
     div = int(dut.div.value)
     pol = int(dut.pol.value)
-    if (div == 0):
+    if div == 0:
         return
 
     await RisingEdge(dut.clk_s)
     await Timer(CLOCK_T_PS / 4, "ps")
 
     assert dut.clk_s.value == 1
-    if (pol):
+    if pol:
         assert dut.clk_f.value == 1
     else:
         assert dut.clk_f.value == 0
+
 
 @cocotb.test(timeout_time=10, timeout_unit="us")
 async def test_divider(dut):
     Clock(dut.clk_f, CLOCK_T_PS, "ps").start()
 
     div_width = int(dut.DIV_WIDTH.value)
-    max_div = (2 ** div_width) - 1
+    max_div = (2**div_width) - 1
 
     div_values = []
 
