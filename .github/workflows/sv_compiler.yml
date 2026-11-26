@@ -21,6 +21,12 @@ jobs:
           path: ${{ env.REPO_PATH }}
           submodules: "true"
 
+
+      - name: "Install python dependencies"
+        shell: bash
+        run: |
+          pip install --break-system-packages --upgrade cotti_uvm bresenham
+
       - name: "Compile and test"
         shell: bash
         run: |
