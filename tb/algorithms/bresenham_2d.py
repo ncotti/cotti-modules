@@ -23,14 +23,21 @@ from cotti_uvm import (
 
 
 class LineItem(Item):
+    """Normal Line item.
+
+    It waits until the line finishes drawing, and adds an extra random delay at
+    the end.
+    """
     def __init__(self, x0: int = 0, x1: int = 0,
-        y0: int = 0, y1: int = 0, start: bool = False):
+        y0: int = 0, y1: int = 0, start: bool = False, extra_start_cycles:int = 0):
+        """extra_start_cycles are extra cycles that the start signal is held high."""
         super().__init__("line_item")
         self.x0 = x0
         self.y0 = y0
         self.x1 = x1
         self.y1 = y1
         self.start = start
+        self.extra_start_cycles = extra_start_cycles
 
     async def delay(self, item) -> None:
         dx = abs(item.x1 - item.x0)
@@ -41,7 +48,10 @@ class LineItem(Item):
         for i in range(line_length):
             await FallingEdge(self.dut.clk)
 
-        await FallingEdge(self.dut.clk)
+        # Extra clock delay in-between lines
+        delay = random.randint(1, 10)
+        for i in range(delay):
+            await FallingEdge(self.dut.clk)
 
 
     def __eq__(self, other):
@@ -55,6 +65,39 @@ class LineItem(Item):
         return (f"(x0,y0): ({self.x0},{self.y0}), "
             f"(x1,y1): ({self.x1},{self.y1}), "
             f"start: {self.start})")
+
+
+class JITLine(LineItem):
+    """Just-In-Time line. This line has zero delay after the line finishes."""
+    async def delay(self, item) -> None:
+        dx = abs(item.x1 - item.x0)
+        dy = abs(item.y1 - item.y0)
+
+        line_length = max(dx, dy) + 1
+
+        for i in range(line_length):
+            await FallingEdge(self.dut.clk)
+
+
+class QuickLine(LineItem):
+    """This line has less delay than one required for the line to finish."""
+    async def delay(self, item) -> None:
+        dx = abs(item.x1 - item.x0)
+        dy = abs(item.y1 - item.y0)
+
+        line_length = max(dx, dy) + 1
+
+        line_length -= random.randint(1, line_length-1)
+
+        for i in range(line_length):
+            await FallingEdge(self.dut.clk)
+
+class ZeroDelayLine(LineItem):
+    """This line has zero delay.
+
+    Useful for modifying the input while a line is being drawn."""
+    async def delay(self, item) -> None:
+        pass
 
 def golden_ref(item: LineItem) -> list[(int,int)]:
     if (item.start):
@@ -80,6 +123,10 @@ class BresenhamBfm(Bfm):
                 self.dut.x1.value = item.x1
                 self.dut.y0.value = item.y0
                 self.dut.y1.value = item.y1
+
+                for i in range(item.extra_start_cycles):
+                    await FallingEdge(self.dut.clk)
+
             except QueueEmpty:
                 self.dut.start.value = 0
 
@@ -191,7 +238,6 @@ class BresenhamCoverage(Coverage):
             out.append(LineEnum.SAME_START_END)
         return out
 
-
 class CircularSeq(Sequence):
     """Lines every 30° (aprox), from 0° to 330°"""
     def items(self) -> list[LineItem]:
@@ -265,13 +311,14 @@ class RandomSeq(Sequence):
             x1 = random.randint(min_point, max_point)
             y0 = random.randint(min_point, max_point)
             y1 = random.randint(min_point, max_point)
-            item = LineItem(x0=x0, x1=x1, y0=y0, y1=y1, start=True)
+            item = LineItem(x0=x0, x1=x1, y0=y0, y1=y1, start=True,
+                extra_start_cycles=random.randint(0, 4))
             out.append(item)
 
         return out
 
 @pyuvm.test()
-class RandomTest(Tester):
+class FunctionalTest(Tester):
     bfm = BresenhamBfm
     golden_ref = golden_ref
     sequence = [CircularSeq, DiagonalSeq, SamePointSeq, RandomSeq]
@@ -283,5 +330,5 @@ class RandomTest(Tester):
 #     bfm = BresenhamBfm
 #     golden_ref = golden_ref
 #     sequence = 
-#     coverage
+#     coverage =
 #     end_delay_ns = 50

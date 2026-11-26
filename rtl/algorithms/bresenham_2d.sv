@@ -84,6 +84,7 @@ logic signed [WIDTH+1:0] error;
 logic x_move, y_move;
 logic last_comb;
 logic drawing;
+logic prev_start;
 
 region_t region, region_initial;
 
@@ -179,8 +180,13 @@ always_comb begin
     endcase
 end
 
+// Rising edge of start
 always_ff @(posedge clk) begin
-    if (start) begin
+    prev_start <= start;
+end
+
+always_ff @(posedge clk) begin
+    if (start & ~prev_start) begin
         dx <= dx_input;
         dy <= dy_input;
         x1_reg <= x1;
