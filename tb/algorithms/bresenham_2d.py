@@ -49,7 +49,7 @@ class LineItem(Item):
             await FallingEdge(self.dut.clk)
 
         # Extra clock delay in-between lines
-        delay = random.randint(1, 10)
+        delay = random.randint(0, 10)
         for i in range(delay):
             await FallingEdge(self.dut.clk)
 
@@ -317,6 +317,58 @@ class RandomSeq(Sequence):
 
         return out
 
+
+class ModifiedInputSeq(Sequence):
+    """Lines that have their inputs changed while drawing."""
+    def items(self) -> list[LineItem]:
+        out = []
+        width = config_db_get("WIDTH")
+
+        min_point = - 2 ** (width-1)
+        max_point = (2 ** (width-1)) - 1
+
+        for i in range(20):
+            x0 = random.randint(min_point, max_point)
+            x1 = random.randint(min_point, max_point)
+            y0 = random.randint(min_point, max_point)
+            y1 = random.randint(min_point, max_point)
+            item = QuickLine(x0=x0, x1=x1, y0=y0, y1=y1, start=True)
+            out.append(item)
+
+            # Do some changes to the input while the line is being drawn
+            for j in range(3):
+                x0_new = random.randint(min_point, max_point)
+                x1_new = random.randint(min_point, max_point)
+                y0_new = random.randint(min_point, max_point)
+                y1_new = random.randint(min_point, max_point)
+                item = ZeroDelayLine(x0=x0_new, x1=x1_new, y0=y0_new, y1=y1_new, start=False, extra_start_cycles=3)
+                out.append(item)
+
+            # Now, wait until it finishes
+            item = LineItem(x0=x0, x1=x1, y0=y0, y1=y1, start = False)
+            out.append(item)
+
+        return out
+
+class InterruptSeq(Sequence):
+    """A new line is started before the previous one could finish"""
+    def items(self) -> list[LineItem]:
+        out = []
+        width = config_db_get("WIDTH")
+
+        min_point = - 2 ** (width-1)
+        max_point = (2 ** (width-1)) - 1
+
+        for i in range(10):
+            x0 = random.randint(min_point, max_point)
+            x1 = random.randint(min_point, max_point)
+            y0 = random.randint(min_point, max_point)
+            y1 = random.randint(min_point, max_point)
+            item = QuickLine(x0=x0, x1=x1, y0=y0, y1=y1, start=True)
+            out.append(item)
+
+        return out
+
 @pyuvm.test()
 class FunctionalTest(Tester):
     bfm = BresenhamBfm
@@ -325,10 +377,18 @@ class FunctionalTest(Tester):
     coverage = BresenhamCoverage
     end_delay_ns = 50
 
+@pyuvm.test()
+class ModifiedInput(Tester):
+    bfm = BresenhamBfm
+    golden_ref = golden_ref
+    sequence = ModifiedInputSeq
+    end_delay_ns = 50
+
+# This is working, but the tb makes it fail because it never receives a
+# "last signal" at the end
 # @pyuvm.test()
-# class TimingTest(Tester):
+# class InterruptedLine(Tester):
 #     bfm = BresenhamBfm
 #     golden_ref = golden_ref
-#     sequence = 
-#     coverage =
-#     end_delay_ns = 50
+#     sequence = InterruptSeq
+#     end_delay_ns = 200
