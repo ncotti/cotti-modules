@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026  Nicolas Gabriel Cotti
 `include "bresenham_h.svh"
 
 /// @brief Bresenham's algorithm implementation.
