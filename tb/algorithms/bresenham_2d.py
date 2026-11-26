@@ -126,7 +126,6 @@ class BresenhamBfm(Bfm):
             await FallingEdge(self.dut.clk)
             start = bool(self.dut.start.value)
             last = bool(self.dut.last.value)
-            num = int(self.dut.num.value)
             x = to_signed(int(self.dut.x.value), self.width)
             y = to_signed(int(self.dut.y.value), self.width)
 
@@ -271,10 +270,10 @@ class RandomSeq(Sequence):
         out = []
         width = config_db_get("WIDTH")
 
-        min_point = - 2 ** (width-6)
-        max_point = (2 ** (width-6)) - 1
+        min_point = - 2 ** (width-1)
+        max_point = (2 ** (width-1)) - 1
 
-        for i in range(1):
+        for i in range(50):
             x0 = random.randint(min_point, max_point)
             x1 = random.randint(min_point, max_point)
             y0 = random.randint(min_point, max_point)
@@ -289,6 +288,6 @@ class RandomSeq(Sequence):
 class RandomTest(Tester):
     bfm = BresenhamBfm
     golden_ref = golden_ref
-    sequence = [CircularSeq, DiagonalSeq, SamePointSeq]
+    sequence = [CircularSeq, DiagonalSeq, SamePointSeq, RandomSeq]
     coverage = BresenhamCoverage
     end_delay_ns = 2000

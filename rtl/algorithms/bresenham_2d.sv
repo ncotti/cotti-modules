@@ -50,7 +50,6 @@ module bresenham_2d #(
     input logic start,
     output logic [WIDTH-1:0] x,
     output logic [WIDTH-1:0] y,
-    output logic [WIDTH-1:0] num,
     output logic last
 );
 
@@ -61,18 +60,26 @@ timeunit 1ns; timeprecision 1ns;
 logic signed [WIDTH-1:0] x1_reg;
 logic signed [WIDTH-1:0] y1_reg;
 
-logic signed [WIDTH-1:0] dx, dx_input, dx_abs;
-logic signed [WIDTH-1:0] dy, dy_input, dy_abs;
-
 logic signed [WIDTH-1:0] x_add;
 logic signed [WIDTH-1:0] y_add;
 
-logic signed [WIDTH-1:0] error_x;
-logic signed [WIDTH-1:0] error_y;
+// Note that the width is "WIDTH", and not "WIDTH-1".
+// E.g., for an 8-bit WIDTH, `dx` maximum and minimum values would be:
+// dx_max = 127 -(-128) = 255
+// dx_min = -128 -127 = -255
+// Therefore, we require an extra bit.
+logic signed [WIDTH:0] dx, dx_input, dx_abs;
+logic signed [WIDTH:0] dy, dy_input, dy_abs;
 
-// This is equivalent to the "2D" variable in the docs.
-logic signed [WIDTH-1:0] error_initial;
-logic signed [WIDTH-1:0] error;
+// Note that the width is "WIDTH+1".
+// E.g., for an 8-bit WIDTH, maximum and minimum values for the errors are:
+// error_max = 2 * dy = 510
+// error_min = - 2 * dy = -510
+// Therefore, we require two extra bits.
+logic signed [WIDTH+1:0] error_x;
+logic signed [WIDTH+1:0] error_y;
+logic signed [WIDTH+1:0] error_initial;
+logic signed [WIDTH+1:0] error;
 
 logic x_move, y_move;
 logic last_comb;
@@ -83,8 +90,8 @@ region_t region, region_initial;
 assign dx_input = x1 - x0;
 assign dy_input = y1 - y0;
 
-assign dx_abs = (dx_input[WIDTH-1]) ? -dx_input : dx_input;
-assign dy_abs = (dy_input[WIDTH-1]) ? -dy_input : dy_input;
+assign dx_abs = (dx_input[WIDTH]) ? -dx_input : dx_input;
+assign dy_abs = (dy_input[WIDTH]) ? -dy_input : dy_input;
 
 assign last_comb = (x == x1_reg) && (y == y1_reg);
 
@@ -178,7 +185,6 @@ always_ff @(posedge clk) begin
         dy <= dy_input;
         x1_reg <= x1;
         y1_reg <= y1;
-        num <= '0;
         drawing <= 1'b1;
 
         x <= x0;
@@ -194,7 +200,6 @@ always_ff @(posedge clk) begin
         if (!last_comb) begin
             x <= (x_move) ? x + x_add : x;
             y <= (y_move) ? y + y_add : y;
-            num <= num + 1;
             drawing <= 1'b1;
             unique case ({x_move, y_move})
                 2'b00: error <= error;
@@ -206,7 +211,6 @@ always_ff @(posedge clk) begin
         else begin
             x <= x;
             y <= y;
-            num <= num;
             error <= error;
             drawing <= 1'b0;
         end
