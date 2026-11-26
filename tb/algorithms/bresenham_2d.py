@@ -18,20 +18,8 @@ from cotti_uvm import (
     Tester,
     config_db_get,
     config_db_set,
+    signed,
 )
-
-
-# TODO, add to cotti-uvm as helper
-def to_signed(a:int, width:int) -> int:
-    """Converts an integer from the range [0;255] to [-128:127]"""
-    max_unsigned_value = (2** width) - 1
-    max_signed_value = (2 ** (width-1)) - 1
-    if (a >= 0 and a <= max_signed_value):
-        return a
-    elif (a > max_signed_value and a <= max_unsigned_value):
-        return a - (max_unsigned_value + 1)
-    else:
-        return max_unsigned_value
 
 
 class LineItem(Item):
@@ -102,10 +90,10 @@ class BresenhamBfm(Bfm):
             start = bool(self.dut.start.value)
 
             if start and not prev_start:
-                x0 = to_signed(int(self.dut.x0.value), self.width)
-                x1 = to_signed(int(self.dut.x1.value), self.width)
-                y0 = to_signed(int(self.dut.y0.value), self.width)
-                y1 = to_signed(int(self.dut.y1.value), self.width)
+                x0 = signed(int(self.dut.x0.value), self.width)
+                x1 = signed(int(self.dut.x1.value), self.width)
+                y0 = signed(int(self.dut.y0.value), self.width)
+                y1 = signed(int(self.dut.y1.value), self.width)
 
                 item = LineItem(
                     x0=x0,
@@ -126,8 +114,8 @@ class BresenhamBfm(Bfm):
             await FallingEdge(self.dut.clk)
             start = bool(self.dut.start.value)
             last = bool(self.dut.last.value)
-            x = to_signed(int(self.dut.x.value), self.width)
-            y = to_signed(int(self.dut.y.value), self.width)
+            x = signed(int(self.dut.x.value), self.width)
+            y = signed(int(self.dut.y.value), self.width)
 
             if start and not prev_start:
                 line = []
@@ -264,7 +252,6 @@ class SamePointSeq(Sequence):
             )
         ]
 
-
 class RandomSeq(Sequence):
     def items(self) -> list[LineItem]:
         out = []
@@ -283,11 +270,18 @@ class RandomSeq(Sequence):
 
         return out
 
-
 @pyuvm.test()
 class RandomTest(Tester):
     bfm = BresenhamBfm
     golden_ref = golden_ref
     sequence = [CircularSeq, DiagonalSeq, SamePointSeq, RandomSeq]
     coverage = BresenhamCoverage
-    end_delay_ns = 2000
+    end_delay_ns = 50
+
+# @pyuvm.test()
+# class TimingTest(Tester):
+#     bfm = BresenhamBfm
+#     golden_ref = golden_ref
+#     sequence = 
+#     coverage
+#     end_delay_ns = 50
