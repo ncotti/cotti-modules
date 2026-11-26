@@ -28,8 +28,16 @@ class LineItem(Item):
     It waits until the line finishes drawing, and adds an extra random delay at
     the end.
     """
-    def __init__(self, x0: int = 0, x1: int = 0,
-        y0: int = 0, y1: int = 0, start: bool = False, extra_start_cycles:int = 0):
+
+    def __init__(
+        self,
+        x0: int = 0,
+        x1: int = 0,
+        y0: int = 0,
+        y1: int = 0,
+        start: bool = False,
+        extra_start_cycles: int = 0,
+    ):
         """extra_start_cycles are extra cycles that the start signal is held high."""
         super().__init__("line_item")
         self.x0 = x0
@@ -53,22 +61,22 @@ class LineItem(Item):
         for i in range(delay):
             await FallingEdge(self.dut.clk)
 
-
     def __eq__(self, other):
-        return (self.x0 == other.x0) and \
-            (self.x1 == other.x1) and \
-            (self.y0 == other.y0) \
-            (self.y1 == other.y1) \
-            (self.start == other.start)
+        return (
+            (self.x0 == other.x0)
+            and (self.x1 == other.x1)
+            and (self.y0 == other.y0)(self.y1 == other.y1)(self.start == other.start)
+        )
 
     def __str__(self):
-        return (f"(x0,y0): ({self.x0},{self.y0}), "
-            f"(x1,y1): ({self.x1},{self.y1}), "
-            f"start: {self.start})")
+        return (
+            f"(x0,y0): ({self.x0},{self.y0}), (x1,y1): ({self.x1},{self.y1}), start: {self.start})"
+        )
 
 
 class JITLine(LineItem):
     """Just-In-Time line. This line has zero delay after the line finishes."""
+
     async def delay(self, item) -> None:
         dx = abs(item.x1 - item.x0)
         dy = abs(item.y1 - item.y0)
@@ -81,29 +89,34 @@ class JITLine(LineItem):
 
 class QuickLine(LineItem):
     """This line has less delay than one required for the line to finish."""
+
     async def delay(self, item) -> None:
         dx = abs(item.x1 - item.x0)
         dy = abs(item.y1 - item.y0)
 
         line_length = max(dx, dy) + 1
 
-        line_length -= random.randint(1, line_length-1)
+        line_length -= random.randint(1, line_length - 1)
 
         for i in range(line_length):
             await FallingEdge(self.dut.clk)
+
 
 class ZeroDelayLine(LineItem):
     """This line has zero delay.
 
     Useful for modifying the input while a line is being drawn."""
+
     async def delay(self, item) -> None:
         pass
 
-def golden_ref(item: LineItem) -> list[(int,int)]:
-    if (item.start):
+
+def golden_ref(item: LineItem) -> list[(int, int)]:
+    if item.start:
         return list(bresenham(x0=item.x0, x1=item.x1, y0=item.y0, y1=item.y1))
     else:
         return []
+
 
 class BresenhamBfm(Bfm):
     def on_start(self):
@@ -183,17 +196,19 @@ class LineEnum(Enum):
 
     R0-R7 represent the regions of the plane, where R0 is the region from 0° to 45° degress.
     """
-    R0 = 0,
-    R1 = 1,
-    R2 = 2,
-    R3 = 3,
-    R4 = 4,
-    R5 = 5,
-    R6 = 6,
-    R7 = 7,
-    DX_0 = 8,
-    DY_0 = 9,
-    SAME_START_END = 10,
+
+    R0 = (0,)
+    R1 = (1,)
+    R2 = (2,)
+    R3 = (3,)
+    R4 = (4,)
+    R5 = (5,)
+    R6 = (6,)
+    R7 = (7,)
+    DX_0 = (8,)
+    DY_0 = (9,)
+    SAME_START_END = (10,)
+
 
 class BresenhamCoverage(Coverage):
     coverage_enum = LineEnum
@@ -228,18 +243,20 @@ class BresenhamCoverage(Coverage):
         else:
             out.append(LineEnum.R7)
 
-        if (dx == 0):
+        if dx == 0:
             out.append(LineEnum.DX_0)
 
-        if (dy == 0):
+        if dy == 0:
             out.append(LineEnum.DY_0)
 
-        if (dx == 0 and dy == 0):
+        if dx == 0 and dy == 0:
             out.append(LineEnum.SAME_START_END)
         return out
 
+
 class CircularSeq(Sequence):
     """Lines every 30° (aprox), from 0° to 330°"""
+
     def items(self) -> list[LineItem]:
         out = []
         width = config_db_get("WIDTH")
@@ -260,8 +277,10 @@ class CircularSeq(Sequence):
 
         return out
 
+
 class DiagonalSeq(Sequence):
     """Lines at exactly 45, 135°, 235° and 315° degree."""
+
     def items(self) -> list[LineItem]:
         out = []
         width = config_db_get("WIDTH")
@@ -284,35 +303,29 @@ class DiagonalSeq(Sequence):
 class SamePointSeq(Sequence):
     def items(self) -> list[LineItem]:
         width = config_db_get("WIDTH")
-        min_point = - 2 ** (width-1)
-        max_point = (2 ** (width-1)) - 1
+        min_point = -(2 ** (width - 1))
+        max_point = (2 ** (width - 1)) - 1
 
         rand_value = random.randint(min_point, max_point)
-        return [
-            LineItem(
-                x0=rand_value,
-                y0=rand_value,
-                x1=rand_value,
-                y1=rand_value,
-                start=True
-            )
-        ]
+        return [LineItem(x0=rand_value, y0=rand_value, x1=rand_value, y1=rand_value, start=True)]
+
 
 class RandomSeq(Sequence):
     def items(self) -> list[LineItem]:
         out = []
         width = config_db_get("WIDTH")
 
-        min_point = - 2 ** (width-1)
-        max_point = (2 ** (width-1)) - 1
+        min_point = -(2 ** (width - 1))
+        max_point = (2 ** (width - 1)) - 1
 
         for i in range(50):
             x0 = random.randint(min_point, max_point)
             x1 = random.randint(min_point, max_point)
             y0 = random.randint(min_point, max_point)
             y1 = random.randint(min_point, max_point)
-            item = LineItem(x0=x0, x1=x1, y0=y0, y1=y1, start=True,
-                extra_start_cycles=random.randint(0, 4))
+            item = LineItem(
+                x0=x0, x1=x1, y0=y0, y1=y1, start=True, extra_start_cycles=random.randint(0, 4)
+            )
             out.append(item)
 
         return out
@@ -320,12 +333,13 @@ class RandomSeq(Sequence):
 
 class ModifiedInputSeq(Sequence):
     """Lines that have their inputs changed while drawing."""
+
     def items(self) -> list[LineItem]:
         out = []
         width = config_db_get("WIDTH")
 
-        min_point = - 2 ** (width-1)
-        max_point = (2 ** (width-1)) - 1
+        min_point = -(2 ** (width - 1))
+        max_point = (2 ** (width - 1)) - 1
 
         for i in range(20):
             x0 = random.randint(min_point, max_point)
@@ -341,23 +355,27 @@ class ModifiedInputSeq(Sequence):
                 x1_new = random.randint(min_point, max_point)
                 y0_new = random.randint(min_point, max_point)
                 y1_new = random.randint(min_point, max_point)
-                item = ZeroDelayLine(x0=x0_new, x1=x1_new, y0=y0_new, y1=y1_new, start=False, extra_start_cycles=3)
+                item = ZeroDelayLine(
+                    x0=x0_new, x1=x1_new, y0=y0_new, y1=y1_new, start=False, extra_start_cycles=3
+                )
                 out.append(item)
 
             # Now, wait until it finishes
-            item = LineItem(x0=x0, x1=x1, y0=y0, y1=y1, start = False)
+            item = LineItem(x0=x0, x1=x1, y0=y0, y1=y1, start=False)
             out.append(item)
 
         return out
 
+
 class InterruptSeq(Sequence):
     """A new line is started before the previous one could finish"""
+
     def items(self) -> list[LineItem]:
         out = []
         width = config_db_get("WIDTH")
 
-        min_point = - 2 ** (width-1)
-        max_point = (2 ** (width-1)) - 1
+        min_point = -(2 ** (width - 1))
+        max_point = (2 ** (width - 1)) - 1
 
         for i in range(10):
             x0 = random.randint(min_point, max_point)
@@ -369,6 +387,7 @@ class InterruptSeq(Sequence):
 
         return out
 
+
 @pyuvm.test()
 class FunctionalTest(Tester):
     bfm = BresenhamBfm
@@ -377,12 +396,14 @@ class FunctionalTest(Tester):
     coverage = BresenhamCoverage
     end_delay_ns = 50
 
+
 @pyuvm.test()
 class ModifiedInput(Tester):
     bfm = BresenhamBfm
     golden_ref = golden_ref
     sequence = ModifiedInputSeq
     end_delay_ns = 50
+
 
 # This is working, but the tb makes it fail because it never receives a
 # "last signal" at the end

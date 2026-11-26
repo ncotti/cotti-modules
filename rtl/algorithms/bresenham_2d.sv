@@ -42,8 +42,8 @@
 /// @param last When `x == x1` and `y == y1`, a pulse is sent indicating
 /// that this is the last point of the line.
 module bresenham_2d #(
-    parameter int WIDTH=8
-)(
+    parameter int WIDTH = 8
+) (
     input logic clk,
     input logic signed [WIDTH-1:0] x0,
     input logic signed [WIDTH-1:0] y0,
@@ -55,174 +55,175 @@ module bresenham_2d #(
     output logic last
 );
 
-import bresenham_h::*;
+    import bresenham_h::*;
 
-timeunit 1ns; timeprecision 1ns;
+    timeunit 1ns; timeprecision 1ns;
 
-logic signed [WIDTH-1:0] x1_reg;
-logic signed [WIDTH-1:0] y1_reg;
+    logic signed [WIDTH-1:0] x1_reg;
+    logic signed [WIDTH-1:0] y1_reg;
 
-logic signed [WIDTH-1:0] x_add;
-logic signed [WIDTH-1:0] y_add;
+    logic signed [WIDTH-1:0] x_add;
+    logic signed [WIDTH-1:0] y_add;
 
-// Note that the width is "WIDTH", and not "WIDTH-1".
-// E.g., for an 8-bit WIDTH, `dx` maximum and minimum values would be:
-// dx_max = 127 -(-128) = 255
-// dx_min = -128 -127 = -255
-// Therefore, we require an extra bit.
-logic signed [WIDTH:0] dx, dx_input, dx_abs;
-logic signed [WIDTH:0] dy, dy_input, dy_abs;
+    // Note that the width is "WIDTH", and not "WIDTH-1".
+    // E.g., for an 8-bit WIDTH, `dx` maximum and minimum values would be:
+    // dx_max = 127 -(-128) = 255
+    // dx_min = -128 -127 = -255
+    // Therefore, we require an extra bit.
+    logic signed [WIDTH:0] dx, dx_input, dx_abs;
+    logic signed [WIDTH:0] dy, dy_input, dy_abs;
 
-// Note that the width is "WIDTH+1".
-// E.g., for an 8-bit WIDTH, maximum and minimum values for the errors are:
-// error_max = 2 * dy = 510
-// error_min = - 2 * dy = -510
-// Therefore, we require two extra bits.
-logic signed [WIDTH+1:0] error_x;
-logic signed [WIDTH+1:0] error_y;
-logic signed [WIDTH+1:0] error_initial;
-logic signed [WIDTH+1:0] error;
+    // Note that the width is "WIDTH+1".
+    // E.g., for an 8-bit WIDTH, maximum and minimum values for the errors are:
+    // error_max = 2 * dy = 510
+    // error_min = - 2 * dy = -510
+    // Therefore, we require two extra bits.
+    logic signed [WIDTH+1:0] error_x;
+    logic signed [WIDTH+1:0] error_y;
+    logic signed [WIDTH+1:0] error_initial;
+    logic signed [WIDTH+1:0] error;
 
-logic x_move, y_move;
-logic last_comb;
-logic drawing;
-logic prev_start;
+    logic x_move, y_move;
+    logic last_comb;
+    logic drawing;
+    logic prev_start;
 
-region_t region, region_initial;
+    region_t region, region_initial;
 
-assign dx_input = x1 - x0;
-assign dy_input = y1 - y0;
+    assign dx_input = x1 - x0;
+    assign dy_input = y1 - y0;
 
-assign dx_abs = (dx_input[WIDTH]) ? -dx_input : dx_input;
-assign dy_abs = (dy_input[WIDTH]) ? -dy_input : dy_input;
+    assign dx_abs = (dx_input[WIDTH]) ? -dx_input : dx_input;
+    assign dy_abs = (dy_input[WIDTH]) ? -dy_input : dy_input;
 
-assign last_comb = (x == x1_reg) && (y == y1_reg);
+    assign last_comb = (x == x1_reg) && (y == y1_reg);
 
-assign last = (drawing) ? last_comb : 1'b0;
+    assign last = (drawing) ? last_comb : 1'b0;
 
-assign region_initial = region_t'({dx_input > 0, dy_input > 0, dy_abs > dx_abs});
+    assign region_initial = region_t'({dx_input > 0, dy_input > 0, dy_abs > dx_abs});
 
-always_comb begin
-    unique case (region)
-    R0: begin
-        x_add = 1;
-        y_add = 1;
-        error_x = (dy << 1);
-        error_y = -(dx << 1);
-        x_move = 1'b1;
-        y_move = error >= 0;
+    always_comb begin
+        unique case (region)
+            R0: begin
+                x_add   = 1;
+                y_add   = 1;
+                error_x = (dy << 1);
+                error_y = -(dx << 1);
+                x_move  = 1'b1;
+                y_move  = error >= 0;
+            end
+            R1: begin
+                x_add   = 1;
+                y_add   = 1;
+                error_x = (dy << 1);
+                error_y = -(dx << 1);
+                x_move  = error <= 0;
+                y_move  = 1'b1;
+            end
+            R2: begin
+                x_add   = -1;
+                y_add   = 1;
+                error_x = -(dy << 1);
+                error_y = -(dx << 1);
+                x_move  = error >= 0;
+                y_move  = 1'b1;
+            end
+            R3: begin
+                x_add   = -1;
+                y_add   = 1;
+                error_x = -(dy << 1);
+                error_y = -(dx << 1);
+                x_move  = 1'b1;
+                y_move  = error <= 0;
+            end
+            R4: begin
+                x_add   = -1;
+                y_add   = -1;
+                error_x = -(dy << 1);
+                error_y = (dx << 1);
+                x_move  = 1'b1;
+                y_move  = error >= 0;
+            end
+            R5: begin
+                x_add   = -1;
+                y_add   = -1;
+                error_x = -(dy << 1);
+                error_y = (dx << 1);
+                x_move  = error <= 0;
+                y_move  = 1'b1;
+            end
+            R6: begin
+                x_add   = 1;
+                y_add   = -1;
+                error_x = (dy << 1);
+                error_y = (dx << 1);
+                x_move  = error >= 0;
+                y_move  = 1'b1;
+            end
+            R7: begin
+                x_add   = 1;
+                y_add   = -1;
+                error_x = (dy << 1);
+                error_y = (dx << 1);
+                x_move  = 1'b1;
+                y_move  = error <= 0;
+            end
+        endcase
+
+        unique case (region_initial)
+            R0: error_initial = (dy_input << 1) - dx_input;
+            R1: error_initial = dy_input - (dx_input << 1);
+            R2: error_initial = -dy_input - (dx_input << 1);
+            R3: error_initial = -(dy_input << 1) - dx_input;
+            R4: error_initial = -(dy_input << 1) + dx_input;
+            R5: error_initial = -dy_input + (dx_input << 1);
+            R6: error_initial = dy_input + (dx_input << 1);
+            R7: error_initial = (dy_input << 1) + dx_input;
+        endcase
     end
-    R1: begin
-        x_add = 1;
-        y_add = 1;
-        error_x = (dy << 1);
-        error_y = -(dx << 1);
-        x_move = error <= 0;
-        y_move = 1'b1;
-    end
-    R2: begin
-        x_add = -1;
-        y_add = 1;
-        error_x = -(dy << 1);
-        error_y = -(dx << 1);
-        x_move = error >= 0;
-        y_move = 1'b1;
-    end
-    R3: begin
-        x_add = -1;
-        y_add = 1;
-        error_x = -(dy << 1);
-        error_y = -(dx << 1);
-        x_move = 1'b1;
-        y_move = error <= 0;
-    end
-    R4: begin
-        x_add = -1;
-        y_add = -1;
-        error_x = -(dy << 1);
-        error_y = (dx << 1);
-        x_move = 1'b1;
-        y_move = error >= 0;
-    end
-    R5: begin
-        x_add = -1;
-        y_add = -1;
-        error_x = -(dy << 1);
-        error_y = (dx << 1);
-        x_move = error <= 0;
-        y_move = 1'b1;
-    end
-    R6: begin
-        x_add = 1;
-        y_add = -1;
-        error_x = (dy << 1);
-        error_y = (dx << 1);
-        x_move = error >= 0;
-        y_move = 1'b1;
-    end
-    R7: begin
-        x_add = 1;
-        y_add = -1;
-        error_x = (dy << 1);
-        error_y = (dx << 1);
-        x_move = 1'b1;
-        y_move = error <= 0;
-    end
-    endcase
 
-    unique case (region_initial)
-        R0: error_initial = (dy_input << 1) - dx_input;
-        R1: error_initial = dy_input - (dx_input << 1);
-        R2: error_initial = -dy_input - (dx_input << 1);
-        R3: error_initial = -(dy_input << 1) - dx_input;
-        R4: error_initial = -(dy_input << 1) + dx_input;
-        R5: error_initial = -dy_input + (dx_input << 1);
-        R6: error_initial = dy_input + (dx_input << 1);
-        R7: error_initial = (dy_input << 1) + dx_input;
-    endcase
-end
+    // Rising edge of start
+    always_ff @(posedge clk) begin
+        prev_start <= start;
+    end
 
-// Rising edge of start
-always_ff @(posedge clk) begin
-    prev_start <= start;
-end
-
-always_ff @(posedge clk) begin
-    if (start & ~prev_start) begin
-        dx <= dx_input;
-        dy <= dy_input;
-        x1_reg <= x1;
-        y1_reg <= y1;
-        drawing <= 1'b1;
-
-        x <= x0;
-        y <= y0;
-
-        region <= region_initial;
-        error <= error_initial;
-    end else begin
-        dx <= dx;
-        dy <= dy;
-        x1_reg <= x1_reg;
-        y1_reg <= y1_reg;
-        if (!last_comb) begin
-            x <= (x_move) ? x + x_add : x;
-            y <= (y_move) ? y + y_add : y;
+    always_ff @(posedge clk) begin
+        if (start & ~prev_start) begin
+            dx <= dx_input;
+            dy <= dy_input;
+            x1_reg <= x1;
+            y1_reg <= y1;
             drawing <= 1'b1;
-            unique case ({x_move, y_move})
-                2'b00: error <= error;
-                2'b01: error <= error + error_y;
-                2'b10: error <= error + error_x;
-                2'b11: error <= error + error_x + error_y;
-            endcase
-        end
-        else begin
-            x <= x;
-            y <= y;
-            error <= error;
-            drawing <= 1'b0;
+
+            x <= x0;
+            y <= y0;
+
+            region <= region_initial;
+            error <= error_initial;
+        end else begin
+            dx <= dx;
+            dy <= dy;
+            x1_reg <= x1_reg;
+            y1_reg <= y1_reg;
+            if (!last_comb) begin
+                x <= (x_move) ? x + x_add : x;
+                y <= (y_move) ? y + y_add : y;
+                drawing <= 1'b1;
+                unique case ({
+                    x_move, y_move
+                })
+                    2'b00: error <= error;
+                    2'b01: error <= error + error_y;
+                    2'b10: error <= error + error_x;
+                    2'b11: error <= error + error_x + error_y;
+                endcase
+            end else begin
+                x <= x;
+                y <= y;
+                error <= error;
+                drawing <= 1'b0;
+            end
         end
     end
-end
 
-endmodule: bresenham_2d
+endmodule : bresenham_2d
