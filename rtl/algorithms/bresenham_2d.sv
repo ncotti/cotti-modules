@@ -1,3 +1,4 @@
+`include "bresenham_h.svh"
 
 /// @brief Bresenham's algorithm implementation.
 ///
@@ -53,13 +54,15 @@ module bresenham_2d #(
     output logic last
 );
 
+import bresenham_h::*;
+
 timeunit 1ns; timeprecision 1ns;
 
 logic signed [WIDTH-1:0] x1_reg;
 logic signed [WIDTH-1:0] y1_reg;
 
-logic signed [WIDTH-1:0] dx, dx_input, dx_mod;
-logic signed [WIDTH-1:0] dy, dy_input, dy_mod;
+logic signed [WIDTH-1:0] dx, dx_input, dx_abs;
+logic signed [WIDTH-1:0] dy, dy_input, dy_abs;
 
 logic signed [WIDTH-1:0] x_add;
 logic signed [WIDTH-1:0] y_add;
@@ -68,30 +71,106 @@ logic signed [WIDTH-1:0] error_x;
 logic signed [WIDTH-1:0] error_y;
 
 // This is equivalent to the "2D" variable in the docs.
+logic signed [WIDTH-1:0] error_initial;
 logic signed [WIDTH-1:0] error;
 
 logic x_move, y_move;
 logic last_comb;
 logic drawing;
 
+region_t region, region_initial;
+
 assign dx_input = x1 - x0;
 assign dy_input = y1 - y0;
 
-assign dx_mod = (dx[WIDTH-1]) ? -dx : dx;
-assign dy_mod = (dy[WIDTH-1]) ? -dy : dy;
-
-assign x_add = (dx > 0) ? WIDTH'(1) : WIDTH'(0);
-assign y_add = (dy > 0) ? WIDTH'(1) : WIDTH'(0);
-
-assign error_x = (dx > 0) ? (dy << 1) : (-dy << 1);
-assign error_y = (dy > 0) ? (-dx << 1) : (dx << 1);
-
-assign x_move = (dx_mod > dy_mod) || error < 0;
-assign y_move = (dy_mod > dx_mod) || error >= 0;
+assign dx_abs = (dx_input[WIDTH-1]) ? -dx_input : dx_input;
+assign dy_abs = (dy_input[WIDTH-1]) ? -dy_input : dy_input;
 
 assign last_comb = (x == x1_reg) && (y == y1_reg);
 
 assign last = (drawing) ? last_comb : 1'b0;
+
+assign region_initial = region_t'({dx_input > 0, dy_input > 0, dy_abs > dx_abs});
+
+always_comb begin
+    unique case (region)
+    R0: begin
+        x_add = 1;
+        y_add = 1;
+        error_x = (dy << 1);
+        error_y = -(dx << 1);
+        x_move = 1'b1;
+        y_move = error >= 0;
+    end
+    R1: begin
+        x_add = 1;
+        y_add = 1;
+        error_x = (dy << 1);
+        error_y = -(dx << 1);
+        x_move = error <= 0;
+        y_move = 1'b1;
+    end
+    R2: begin
+        x_add = -1;
+        y_add = 1;
+        error_x = -(dy << 1);
+        error_y = -(dx << 1);
+        x_move = error >= 0;
+        y_move = 1'b1;
+    end
+    R3: begin
+        x_add = -1;
+        y_add = 1;
+        error_x = -(dy << 1);
+        error_y = -(dx << 1);
+        x_move = 1'b1;
+        y_move = error <= 0;
+    end
+    R4: begin
+        x_add = -1;
+        y_add = -1;
+        error_x = -(dy << 1);
+        error_y = (dx << 1);
+        x_move = 1'b1;
+        y_move = error >= 0;
+    end
+    R5: begin
+        x_add = -1;
+        y_add = -1;
+        error_x = -(dy << 1);
+        error_y = (dx << 1);
+        x_move = error <= 0;
+        y_move = 1'b1;
+    end
+    R6: begin
+        x_add = 1;
+        y_add = -1;
+        error_x = (dy << 1);
+        error_y = (dx << 1);
+        x_move = error >= 0;
+        y_move = 1'b1;
+    end
+    R7: begin
+        x_add = 1;
+        y_add = -1;
+        error_x = (dy << 1);
+        error_y = (dx << 1);
+        x_move = 1'b1;
+        y_move = error <= 0;
+    end
+    endcase
+
+    unique case (region_initial)
+        R0: error_initial = (dy_input << 1) - dx_input;
+        R1: error_initial = dy_input - (dx_input << 1);
+        R2: error_initial = -dy_input - (dx_input << 1);
+        R3: error_initial = -(dy_input << 1) - dx_input;
+        R4: error_initial = -(dy_input << 1) + dx_input;
+        R5: error_initial = -dy_input + (dx_input << 1);
+        R6: error_initial = dy_input + (dx_input << 1);
+        R7: error_initial = (dy_input << 1) + dx_input;
+    endcase
+end
 
 always_ff @(posedge clk) begin
     if (start) begin
@@ -104,7 +183,9 @@ always_ff @(posedge clk) begin
 
         x <= x0;
         y <= y0;
-        error <= (dy_input << 1) - dx_input;
+
+        region <= region_initial;
+        error <= error_initial;
     end else begin
         dx <= dx;
         dy <= dy;

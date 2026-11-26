@@ -57,6 +57,9 @@ and each regions can be uniquely identified by the values of $\Delta x$ and $\De
 
 ![X-Y plane regions](images/bresenham_regions.png)
 
+Note: for consistency, whenever an inequality is addressed, the $\le$ and $>$
+symbols are used, i.e., it is always *less or equal* or *greater than*.
+
 ## Choosing the next point
 
 Given the starting point $(x_0, y_0)$, and assuming that the line slope is
@@ -105,6 +108,26 @@ Given the start point and end point of a line:
 
 Keep in mind that the next point and the values added to the $D$ constant
 depend on the region of the line.
+
+| Next point |  Accumulated error  |
+|:----------:|:-------------------:|
+|   $x+1$    | $2 \cdot \Delta y$  |
+|   $x-1$    | $-2\cdot \Delta y$  |
+|   $y+1$    | $-2 \cdot \Delta x$ |
+|   $y-1$    | $2 \cdot \Delta x$  |
+
+The initial error can be assesed from the table above, knowing the value of the middle point:
+
+| Region |  Angle  |        Middle point        |           $D_0$           |
+|:------:|:-------:|:--------------------------:|:-------------------------:|
+|   0    |  0-45   |  $(x+1, y + \frac{1}{2})$  |  $2 \Delta y - \Delta x$  |
+|   1    |  45-90  |  $(x+\frac{1}{2}, y + 1)$  |  $\Delta y - 2 \Delta x$  |
+|   2    | 90-135  |   $(x-\frac{1}{2}, y+1)$   | $- \Delta y - 2 \Delta x$ |
+|   3    | 135-180 |  $(x-1, y + \frac{1}{2})$  |  $-2\Delta y - \Delta x$  |
+|   4    | 180-225 |  $(x-1, y - \frac{1}{2})$  |  $-2\Delta y + \Delta x$  |
+|   5    | 225-270 | $(x- \frac{1}{2}, y - 1)$  |  $-\Delta y + 2\Delta x$  |
+|   6    | 270-315 | $(x + \frac{1}{2}, y - 1)$ |  $\Delta y + 2\Delta x$   |
+|   7    | 315-360 | $(x + 1, y - \frac{1}{2})$ |  $2\Delta y + \Delta x$   |
 
 <!--External links-->
 [bresenham_wikipedia]: https://en.wikipedia.org/wiki/Bresenham's_line_algorithm

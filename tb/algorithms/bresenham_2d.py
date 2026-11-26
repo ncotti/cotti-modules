@@ -1,26 +1,60 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026  Nicolas Gabriel Cotti
 
+import math
+import random
 from enum import Enum
 
 import pyuvm
-from cotti_uvm import Item, config_db_get, config_db_set, Bfm, Coverage, Sequence, Tester
-from cocotb.clock import Clock
-from cocotb.triggers import FallingEdge
-from cocotb.queue import QueueEmpty
-import random
-
 from bresenham import bresenham
+from cocotb.clock import Clock
+from cocotb.queue import QueueEmpty
+from cocotb.triggers import FallingEdge
+from cotti_uvm import (
+    Bfm,
+    Coverage,
+    Item,
+    Sequence,
+    Tester,
+    config_db_get,
+    config_db_set,
+)
+
+
+# TODO, add to cotti-uvm as helper
+def to_signed(a:int, width:int) -> int:
+    """Converts an integer from the range [0;255] to [-128:127]"""
+    max_unsigned_value = (2** width) - 1
+    max_signed_value = (2 ** (width-1)) - 1
+    if (a >= 0 and a <= max_signed_value):
+        return a
+    elif (a > max_signed_value and a <= max_unsigned_value):
+        return a - (max_unsigned_value + 1)
+    else:
+        return max_unsigned_value
+
 
 class LineItem(Item):
     def __init__(self, x0: int = 0, x1: int = 0,
         y0: int = 0, y1: int = 0, start: bool = False):
-        super().__init__("fifo_item")
+        super().__init__("line_item")
         self.x0 = x0
         self.y0 = y0
         self.x1 = x1
         self.y1 = y1
         self.start = start
+
+    async def delay(self, item) -> None:
+        dx = abs(item.x1 - item.x0)
+        dy = abs(item.y1 - item.y0)
+
+        line_length = max(dx, dy) + 1
+
+        for i in range(line_length):
+            await FallingEdge(self.dut.clk)
+
+        await FallingEdge(self.dut.clk)
+
 
     def __eq__(self, other):
         return (self.x0 == other.x0) and \
@@ -68,10 +102,11 @@ class BresenhamBfm(Bfm):
             start = bool(self.dut.start.value)
 
             if start and not prev_start:
-                x0 = int(self.dut.x0.value)
-                x1 = int(self.dut.x1.value)
-                y0 = int(self.dut.y0.value)
-                y1 = int(self.dut.y1.value)
+                x0 = to_signed(int(self.dut.x0.value), self.width)
+                x1 = to_signed(int(self.dut.x1.value), self.width)
+                y0 = to_signed(int(self.dut.y0.value), self.width)
+                y1 = to_signed(int(self.dut.y1.value), self.width)
+
                 item = LineItem(
                     x0=x0,
                     x1=x1,
@@ -92,8 +127,8 @@ class BresenhamBfm(Bfm):
             start = bool(self.dut.start.value)
             last = bool(self.dut.last.value)
             num = int(self.dut.num.value)
-            x = int(self.dut.x.value)
-            y = int(self.dut.y.value)
+            x = to_signed(int(self.dut.x.value), self.width)
+            y = to_signed(int(self.dut.y.value), self.width)
 
             if start and not prev_start:
                 line = []
@@ -109,45 +144,126 @@ class BresenhamBfm(Bfm):
             prev_start = start
 
 
-# class LineEnum(Enum):
-#     FULL = 0
+class LineEnum(Enum):
+    """Coverage cases for the Bresenham's line algorithm.
 
-# class FifoCoverage(Coverage):
-#     coverage_enum = FifoEnum
+    R0-R7 represent the regions of the plane, where R0 is the region from 0° to 45° degress.
+    """
+    R0 = 0,
+    R1 = 1,
+    R2 = 2,
+    R3 = 3,
+    R4 = 4,
+    R5 = 5,
+    R6 = 6,
+    R7 = 7,
+    DX_0 = 8,
+    DY_0 = 9,
+    SAME_START_END = 10,
 
-#     def item_to_coverage(self, item: FifoItem, output: FifoOut) -> list[FifoEnum]:
-#         out = []
-#         if output.empty:
-#             out.append(FifoEnum.EMPTY)
+class BresenhamCoverage(Coverage):
+    coverage_enum = LineEnum
 
-#         if output.full:
-#             out.append(FifoEnum.FULL)
+    def item_to_coverage(self, item: LineItem, output: list[(int, int)]) -> list[LineEnum]:
+        out = []
 
-#         if not item.pop and not item.push:
-#             out.append(FifoEnum.NO_POP_NO_PUSH)
-#         elif not item.pop and item.push:
-#             out.append(FifoEnum.NO_POP_PUSH)
-#         elif item.pop and not item.push:
-#             out.append(FifoEnum.POP_NO_PUSH)
-#         else:
-#             out.append(FifoEnum.POP_PUSH)
+        dx = item.x1 - item.x0
+        dy = item.y1 - item.y0
 
-#         if item.push and output.prev_full:
-#             out.append(FifoEnum.PUSH_ON_FULL)
+        if dx > 0 and dy > 0 and abs(dy) <= abs(dx):
+            out.append(LineEnum.R0)
 
-#         if item.pop and output.prev_empty:
-#             out.append(FifoEnum.POP_ON_EMPTY)
+        elif dx > 0 and dy > 0 and abs(dy) > abs(dx):
+            out.append(LineEnum.R1)
 
-#         if item.pop and item.push and output.prev_empty:
-#             out.append(FifoEnum.PUSH_POP_ON_EMPTY)
+        elif dx <= 0 and dy > 0 and abs(dy) > abs(dx):
+            out.append(LineEnum.R2)
 
-#         if item.pop and item.push and output.prev_full:
-#             out.append(FifoEnum.PUSH_POP_ON_FULL)
+        elif dx <= 0 and dy > 0 and abs(dy) <= abs(dx):
+            out.append(LineEnum.R3)
 
-#         if not item.rstN and not output.prev_empty:
-#             out.append(FifoEnum.RESET_AND_NOT_EMPTY)
+        elif dx <= 0 and dy <= 0 and abs(dy) <= abs(dx):
+            out.append(LineEnum.R4)
 
-#         return out
+        elif dx <= 0 and dy <= 0 and abs(dy) > abs(dx):
+            out.append(LineEnum.R5)
+
+        elif dx > 0 and dy <= 0 and abs(dy) > abs(dx):
+            out.append(LineEnum.R6)
+
+        else:
+            out.append(LineEnum.R7)
+
+        if (dx == 0):
+            out.append(LineEnum.DX_0)
+
+        if (dy == 0):
+            out.append(LineEnum.DY_0)
+
+        if (dx == 0 and dy == 0):
+            out.append(LineEnum.SAME_START_END)
+        return out
+
+
+class CircularSeq(Sequence):
+    """Lines every 30° (aprox), from 0° to 330°"""
+    def items(self) -> list[LineItem]:
+        out = []
+        width = config_db_get("WIDTH")
+
+        assert width > 5
+
+        h = 12
+
+        for angle in range(0, 360, 30):
+            line = LineItem(
+                x0=0,
+                y0=0,
+                x1=math.floor(h * math.cos(float(angle) / 180 * math.pi)),
+                y1=math.floor(h * math.sin(float(angle) / 180 * math.pi)),
+                start=True,
+            )
+            out.append(line)
+
+        return out
+
+class DiagonalSeq(Sequence):
+    """Lines at exactly 45, 135°, 235° and 315° degree."""
+    def items(self) -> list[LineItem]:
+        out = []
+        width = config_db_get("WIDTH")
+        assert width > 5
+
+        h = 8
+        for angle in range(45, 360, 90):
+            line = LineItem(
+                x0=0,
+                y0=0,
+                x1=h if math.cos(float(angle) / 180 * math.pi) > 0 else -h,
+                y1=h if math.sin(float(angle) / 180 * math.pi) > 0 else -h,
+                start=True,
+            )
+            out.append(line)
+
+        return out
+
+
+class SamePointSeq(Sequence):
+    def items(self) -> list[LineItem]:
+        width = config_db_get("WIDTH")
+        min_point = - 2 ** (width-1)
+        max_point = (2 ** (width-1)) - 1
+
+        rand_value = random.randint(min_point, max_point)
+        return [
+            LineItem(
+                x0=rand_value,
+                y0=rand_value,
+                x1=rand_value,
+                y1=rand_value,
+                start=True
+            )
+        ]
 
 
 class RandomSeq(Sequence):
@@ -155,12 +271,16 @@ class RandomSeq(Sequence):
         out = []
         width = config_db_get("WIDTH")
 
-        min_point = - 2 ** (width-1)
-        max_point = (2 ** (width-1)) - 1
+        min_point = - 2 ** (width-6)
+        max_point = (2 ** (width-6)) - 1
 
-        item = LineItem(x0=0, x1=6, y0=1, y1=4, start=True)
-
-        out.append(item)
+        for i in range(1):
+            x0 = random.randint(min_point, max_point)
+            x1 = random.randint(min_point, max_point)
+            y0 = random.randint(min_point, max_point)
+            y1 = random.randint(min_point, max_point)
+            item = LineItem(x0=x0, x1=x1, y0=y0, y1=y1, start=True)
+            out.append(item)
 
         return out
 
@@ -169,6 +289,6 @@ class RandomSeq(Sequence):
 class RandomTest(Tester):
     bfm = BresenhamBfm
     golden_ref = golden_ref
-    sequence = RandomSeq
-    #coverage = FifoCoverage
-    end_delay_ns = 50
+    sequence = [CircularSeq, DiagonalSeq, SamePointSeq]
+    coverage = BresenhamCoverage
+    end_delay_ns = 2000
